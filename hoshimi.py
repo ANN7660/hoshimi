@@ -4,9 +4,6 @@ import asyncio
 from datetime import datetime, timedelta
 import os
 from keep_alive import keep_alive
-from PIL import Image, ImageDraw, ImageFont
-import aiohttp
-from io import BytesIO
 import random
 
 # ===== CONFIGURATION =====
@@ -678,4 +675,4 @@ async def love_calculator(ctx, *, args: str = None):
         emoji = "🤝"
     elif love_percentage >= 20:
         message = "Connaissance ! 👋"
-        emoji = "👋"
+        emoji = "👋

@@ -3,7 +3,6 @@ from discord.ext import commands
 import asyncio
 from datetime import datetime, timedelta
 import os
-import random
 
 # ===== CONFIGURATION =====
 WELCOME_CHANNEL_ID = 1423555370948886581
@@ -152,21 +151,6 @@ async def set_welcome_channel(ctx, channel: discord.TextChannel):
         color=discord.Color.green()
     )
     await ctx.send(embed=embed)
-
-# ===== DÉMARRAGE DU BOT =====
-
-if __name__ == "__main__":
-    TOKEN = os.getenv('DISCORD_TOKEN')
-    
-    if not TOKEN:
-        print("❌ ERREUR : Token Discord non trouvé !")
-        print("📝 Ajoute DISCORD_TOKEN dans les variables d'environnement")
-        exit(1)
-    
-    try:
-        bot.run(TOKEN)
-    except Exception as e:
-        print(f"❌ Erreur de démarrage : {e}")
 
 @bot.command(name='set_leave')
 @commands.has_permissions(administrator=True)  
@@ -639,60 +623,63 @@ async def user_info(ctx, membre: discord.Member = None):
     
     await ctx.send(embed=embed)
 
-# ===== LOVE CALCULATOR =====
+# ===== AIDE =====
 
-@bot.command(name='lc')
-async def love_calculator(ctx, *, args: str = None):
-    """Calcule le taux d'amour entre toi et quelqu'un"""
+@bot.command(name='help', aliases=['aide', 'h'])
+async def help_command(ctx):
+    """Affiche toutes les commandes"""
+    embed = discord.Embed(
+        title="📚 Commandes du Bot Hoshimi",
+        description="Voici toutes les commandes disponibles",
+        color=discord.Color.purple(),
+        timestamp=datetime.now()
+    )
     
-    if args is None:
-        menu_message = "💕 **Love Calculator**\nCalcule le taux d'amour entre deux personnes !\n\n📋 **Commandes disponibles :**\n• `+lc random` - Avec une personne au hasard\n• `+lc @membre` - Avec un membre spécifique"
-        return await ctx.send(menu_message)
+    embed.add_field(
+        name="⚙️ Configuration (Admin)",
+        value="`+set_welcome` - Définir le salon de bienvenue\n"
+              "`+set_leave` - Définir le salon des départs\n"
+              "`+config` - Voir la configuration",
+        inline=False
+    )
     
-    personne1 = ctx.author
+    embed.add_field(
+        name="🛡️ Modération",
+        value="`+ban @membre [raison]` - Bannir un membre\n"
+              "`+kick @membre [raison]` - Expulser un membre\n"
+              "`+mute @membre [minutes] [raison]` - Timeout un membre\n"
+              "`+unmute @membre` - Retirer le timeout\n"
+              "`+clear [nombre]` - Supprimer des messages",
+        inline=False
+    )
     
-    if args.lower() == "random":
-        members = [m for m in ctx.guild.members if not m.bot and m != ctx.author]
-        if len(members) < 1:
-            return await ctx.send("❌ Pas assez de membres !")
-        personne2 = random.choice(members)
-    else:
-        try:
-            personne2 = await commands.MemberConverter().convert(ctx, args.strip('<@!> '))
-        except:
-            return await ctx.send("❌ Membre introuvable ! Utilise `+lc` pour voir les commandes.")
+    embed.add_field(
+        name="📨 Messages Privés (Admin)",
+        value="`+dmall [message]` - Envoyer un MP à tous\n"
+              "`+dmrole @role [message]` - Envoyer un MP à un rôle",
+        inline=False
+    )
     
-    seed = int(str(personne1.id) + str(personne2.id))
-    random.seed(seed)
-    love_percentage = random.randint(0, 100)
+    embed.add_field(
+        name="🔧 Utilitaires",
+        value="`+ping` - Latence du bot\n"
+              "`+avatar [@membre]` - Voir un avatar\n"
+              "`+banner [@membre]` - Voir une bannière\n"
+              "`+serverinfo` - Infos du serveur\n"
+              "`+userinfo [@membre]` - Infos d'un membre",
+        inline=False
+    )
     
-    if love_percentage >= 90:
-        message = "Amour fou ! 💘"
-        emoji = "💘"
-    elif love_percentage >= 80:
-        message = "Couple parfait ! 💖"
-        emoji = "💖"
-    elif love_percentage >= 70:
-        message = "Très forte attirance ! 💕"
-        emoji = "💕"
-    elif love_percentage >= 60:
-        message = "Belle complicité ! 💗"
-        emoji = "💗"
-    elif love_percentage >= 50:
-        message = "Bonne entente ! 💓"
-        emoji = "💓"
-    elif love_percentage >= 40:
-        message = "Amitié possible ! 💙"
-        emoji = "💙"
-    elif love_percentage >= 30:
-        message = "Relation cordiale ! 🤝"
-        emoji = "🤝"
-    elif love_percentage >= 20:
-        message = "Connaissance ! 👋"
-        emoji = "👋"
-    elif love_percentage >= 10:
-        message = "Pas vraiment de feeling... 😐"
-        emoji = "😐"
-    else:
-        message = "Totalement incompatible ! 💔"
-        emoji = "💔
+    embed.set_footer(text=f"Demandé par {ctx.author.display_name}")
+    embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+    
+    await ctx.send(embed=embed)
+
+# ===== DÉMARRAGE DU BOT =====
+
+if __name__ == "__main__":
+    TOKEN = os.getenv('DISCORD_TOKEN')
+    
+    if not TOKEN:
+        print("❌ ERREUR : Token Discord non trouvé !")
+        print("📝 Ajoute DISCORD_TOKEN dans les

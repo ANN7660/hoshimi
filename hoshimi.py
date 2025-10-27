@@ -689,4 +689,10 @@ async def love_calculator(ctx, *, args: str = None):
         emoji = "🤝"
     elif love_percentage >= 20:
         message = "Connaissance ! 👋"
-        emoji = "👋
+        emoji = "👋"
+    elif love_percentage >= 10:
+        message = "Pas vraiment de feeling... 😐"
+        emoji = "😐"
+    else:
+        message = "Totalement incompatible ! 💔"
+        emoji = "💔

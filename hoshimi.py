@@ -3,7 +3,6 @@ from discord.ext import commands
 import asyncio
 from datetime import datetime, timedelta
 import os
-from keep_alive import keep_alive
 import random
 
 # ===== CONFIGURATION =====
@@ -153,6 +152,21 @@ async def set_welcome_channel(ctx, channel: discord.TextChannel):
         color=discord.Color.green()
     )
     await ctx.send(embed=embed)
+
+# ===== DÉMARRAGE DU BOT =====
+
+if __name__ == "__main__":
+    TOKEN = os.getenv('DISCORD_TOKEN')
+    
+    if not TOKEN:
+        print("❌ ERREUR : Token Discord non trouvé !")
+        print("📝 Ajoute DISCORD_TOKEN dans les variables d'environnement")
+        exit(1)
+    
+    try:
+        bot.run(TOKEN)
+    except Exception as e:
+        print(f"❌ Erreur de démarrage : {e}")
 
 @bot.command(name='set_leave')
 @commands.has_permissions(administrator=True)  

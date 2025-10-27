@@ -51,9 +51,7 @@ async def on_member_join(member):
         # Premier message - Embed avec image
         welcome_embed = discord.Embed(
             title="🌸 Bienvenue sur Hoshimi !",
-            description=f"Salut {member.mention} ! 👋\n\n"
-                       f"Nous sommes ravis de t'accueillir dans notre communauté !\n"
-                       f"Tu es notre **{member_count}ème** membre ! 🎉",
+            description=f"Salut {member.mention} ! 👋\n\nNous sommes ravis de t'accueillir dans notre communauté !\nTu es notre **{member_count}ème** membre ! 🎉",
             color=discord.Color.purple(),
             timestamp=datetime.now()
         )
@@ -66,7 +64,7 @@ async def on_member_join(member):
         
         welcome_embed.set_thumbnail(url=member.display_avatar.url)
         welcome_embed.set_image(url=member.guild.icon.url if member.guild.icon else member.display_avatar.url)
-        welcome_embed.set_footer(text=f"Équipe Hoshimi", icon_url=member.guild.icon.url if member.guild.icon else None)
+        welcome_embed.set_footer(text="Équipe Hoshimi", icon_url=member.guild.icon.url if member.guild.icon else None)
         
         await welcome_channel.send(embed=welcome_embed)
         
@@ -77,24 +75,20 @@ async def on_member_join(member):
     # MP de bienvenue
     try:
         dm_embed = discord.Embed(
-            title=f"🎉 Bienvenue sur Hoshimi !",
-            description=f"Salut **{member.display_name}** ! 👋\n\n"
-                       f"Nous sommes ravis de t'accueillir dans notre communauté ! 🔥",
+            title="🎉 Bienvenue sur Hoshimi !",
+            description=f"Salut **{member.display_name}** ! 👋\n\nNous sommes ravis de t'accueillir dans notre communauté ! 🔥",
             color=discord.Color.green(),
             timestamp=datetime.now()
         )
         
         dm_embed.add_field(
             name="📝 Pour bien commencer",
-            value="• Présente-toi dans le salon approprié\n"
-                  "• Explore les différents salons\n"
-                  "• Respecte les règles et les membres\n"
-                  "• Amuse-toi bien !",
+            value="• Présente-toi dans le salon approprié\n• Explore les différents salons\n• Respecte les règles et les membres\n• Amuse-toi bien !",
             inline=False
         )
         
         dm_embed.set_thumbnail(url=member.guild.icon.url if member.guild.icon else None)
-        dm_embed.set_footer(text=f"Équipe Hoshimi")
+        dm_embed.set_footer(text="Équipe Hoshimi")
         
         await member.send(embed=dm_embed)
         
@@ -120,16 +114,14 @@ async def on_member_remove(member):
         # Message avec embed
         leave_embed = discord.Embed(
             title="👋 Au revoir...",
-            description=f"**{member.display_name}** vient de quitter **Hoshimi**\n"
-                       f"Nous sommes maintenant **{member_count}** membres.",
+            description=f"**{member.display_name}** vient de quitter **Hoshimi**\nNous sommes maintenant **{member_count}** membres.",
             color=discord.Color.red(),
             timestamp=datetime.now()
         )
         
         leave_embed.set_thumbnail(url=member.display_avatar.url)
         leave_embed.set_image(url=member.guild.icon.url if member.guild.icon else member.display_avatar.url)
-        leave_embed.set_footer(text=f"Membre depuis le {member.joined_at.strftime('%d/%m/%Y')}", 
-                               icon_url=member.guild.icon.url if member.guild.icon else None)
+        leave_embed.set_footer(text=f"Membre depuis le {member.joined_at.strftime('%d/%m/%Y')}", icon_url=member.guild.icon.url if member.guild.icon else None)
         
         await leave_channel.send(embed=leave_embed)
         
@@ -387,9 +379,7 @@ async def dm_all_members(ctx, *, message):
     await confirm_msg.add_reaction("❌")
     
     def check(reaction, user):
-        return (user == ctx.author and 
-                str(reaction.emoji) in ["✅", "❌"] and 
-                reaction.message.id == confirm_msg.id)
+        return (user == ctx.author and str(reaction.emoji) in ["✅", "❌"] and reaction.message.id == confirm_msg.id)
     
     try:
         reaction, user = await bot.wait_for("reaction_add", timeout=30.0, check=check)
@@ -434,9 +424,7 @@ async def dm_all_members(ctx, *, message):
         )
         final_embed.add_field(name="✅ Envoyés", value=sent_count, inline=True)
         final_embed.add_field(name="❌ Échecs", value=failed_count, inline=True)
-        final_embed.add_field(name="📈 Taux", 
-                            value=f"{round((sent_count / len(non_bot_members)) * 100)}%", 
-                            inline=True)
+        final_embed.add_field(name="📈 Taux", value=f"{round((sent_count / len(non_bot_members)) * 100)}%", inline=True)
         
         await progress_msg.edit(embed=final_embed)
         
@@ -465,9 +453,7 @@ async def dm_role_members(ctx, role: discord.Role, *, message):
     await confirm_msg.add_reaction("❌")
     
     def check(reaction, user):
-        return (user == ctx.author and 
-                str(reaction.emoji) in ["✅", "❌"] and 
-                reaction.message.id == confirm_msg.id)
+        return (user == ctx.author and str(reaction.emoji) in ["✅", "❌"] and reaction.message.id == confirm_msg.id)
     
     try:
         reaction, user = await bot.wait_for("reaction_add", timeout=30.0, check=check)
@@ -538,9 +524,7 @@ async def show_avatar(ctx, membre: discord.Member = None):
     embed.set_image(url=membre.display_avatar.url)
     embed.add_field(
         name="🔗 Liens",
-        value=f"[PNG]({membre.display_avatar.with_format('png').url}) • "
-              f"[JPG]({membre.display_avatar.with_format('jpg').url}) • "
-              f"[WEBP]({membre.display_avatar.with_format('webp').url})",
+        value=f"[PNG]({membre.display_avatar.with_format('png').url}) • [JPG]({membre.display_avatar.with_format('jpg').url}) • [WEBP]({membre.display_avatar.with_format('webp').url})",
         inline=False
     )
     
@@ -561,9 +545,7 @@ async def show_banner(ctx, membre: discord.Member = None):
         embed.set_image(url=user.banner.url)
         embed.add_field(
             name="🔗 Liens",
-            value=f"[PNG]({user.banner.with_format('png').url}) • "
-                  f"[JPG]({user.banner.with_format('jpg').url}) • "
-                  f"[WEBP]({user.banner.with_format('webp').url})",
+            value=f"[PNG]({user.banner.with_format('png').url}) • [JPG]({user.banner.with_format('jpg').url}) • [WEBP]({user.banner.with_format('webp').url})",
             inline=False
         )
         
@@ -637,36 +619,25 @@ async def help_command(ctx):
     
     embed.add_field(
         name="⚙️ Configuration (Admin)",
-        value="`+set_welcome` - Définir le salon de bienvenue\n"
-              "`+set_leave` - Définir le salon des départs\n"
-              "`+config` - Voir la configuration",
+        value="`+set_welcome` - Définir le salon de bienvenue\n`+set_leave` - Définir le salon des départs\n`+config` - Voir la configuration",
         inline=False
     )
     
     embed.add_field(
         name="🛡️ Modération",
-        value="`+ban @membre [raison]` - Bannir un membre\n"
-              "`+kick @membre [raison]` - Expulser un membre\n"
-              "`+mute @membre [minutes] [raison]` - Timeout un membre\n"
-              "`+unmute @membre` - Retirer le timeout\n"
-              "`+clear [nombre]` - Supprimer des messages",
+        value="`+ban @membre [raison]` - Bannir un membre\n`+kick @membre [raison]` - Expulser un membre\n`+mute @membre [minutes] [raison]` - Timeout un membre\n`+unmute @membre` - Retirer le timeout\n`+clear [nombre]` - Supprimer des messages",
         inline=False
     )
     
     embed.add_field(
         name="📨 Messages Privés (Admin)",
-        value="`+dmall [message]` - Envoyer un MP à tous\n"
-              "`+dmrole @role [message]` - Envoyer un MP à un rôle",
+        value="`+dmall [message]` - Envoyer un MP à tous\n`+dmrole @role [message]` - Envoyer un MP à un rôle",
         inline=False
     )
     
     embed.add_field(
         name="🔧 Utilitaires",
-        value="`+ping` - Latence du bot\n"
-              "`+avatar [@membre]` - Voir un avatar\n"
-              "`+banner [@membre]` - Voir une bannière\n"
-              "`+serverinfo` - Infos du serveur\n"
-              "`+userinfo [@membre]` - Infos d'un membre",
+        value="`+ping` - Latence du bot\n`+avatar [@membre]` - Voir un avatar\n`+banner [@membre]` - Voir une bannière\n`+serverinfo` - Infos du serveur\n`+userinfo [@membre]` - Infos d'un membre",
         inline=False
     )
     
@@ -682,4 +653,10 @@ if __name__ == "__main__":
     
     if not TOKEN:
         print("❌ ERREUR : Token Discord non trouvé !")
-        print("📝 Ajoute DISCORD_TOKEN dans les
+        print("📝 Ajoute DISCORD_TOKEN dans les variables d'environnement")
+        exit(1)
+    
+    try:
+        bot.run(TOKEN)
+    except Exception as e:
+        print(f"❌ Erreur de démarrage : {e}")

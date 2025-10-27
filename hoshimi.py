@@ -23,10 +23,10 @@ bot = commands.Bot(command_prefix=’+’, intents=intents, help_command=None)
 @bot.event
 async def on_ready():
 print(’=’ * 60)
-print(f’🤖 Bot connecté: {bot.user.name}’)
-print(f’🆔 ID: {bot.user.id}’)
-print(f’📊 Serveurs: {len(bot.guilds)}’)
-print(f’👥 Utilisateurs: {len(set(bot.get_all_members()))}’)
+print(f”🤖 Bot connecté: {bot.user.name}”)
+print(f”🆔 ID: {bot.user.id}”)
+print(f”📊 Serveurs: {len(bot.guilds)}”)
+print(f”👥 Utilisateurs: {len(set(bot.get_all_members()))}”)
 print(’=’ * 60)
 
 ```
@@ -216,9 +216,9 @@ try:
         await member.send(embed=dm_embed)
     except:
         pass
-
+    
     await member.ban(reason=f"Par {ctx.author} - {raison}")
-
+    
     embed = discord.Embed(
         title="🔨 Membre banni",
         description=f"**{member.display_name}** a été banni du serveur",
@@ -228,7 +228,7 @@ try:
     embed.add_field(name="📝 Raison", value=raison, inline=False)
     embed.add_field(name="👮 Modérateur", value=ctx.author.mention, inline=False)
     embed.set_thumbnail(url=member.display_avatar.url)
-
+    
     await ctx.send(embed=embed)
 
 except discord.Forbidden:
@@ -260,9 +260,9 @@ try:
         await member.send(embed=dm_embed)
     except:
         pass
-
+    
     await member.kick(reason=f"Par {ctx.author} - {raison}")
-
+    
     embed = discord.Embed(
         title="👢 Membre expulsé",
         description=f"**{member.display_name}** a été expulsé du serveur",
@@ -272,7 +272,7 @@ try:
     embed.add_field(name="📝 Raison", value=raison, inline=False)
     embed.add_field(name="👮 Modérateur", value=ctx.author.mention, inline=False)
     embed.set_thumbnail(url=member.display_avatar.url)
-
+    
     await ctx.send(embed=embed)
 
 except discord.Forbidden:
@@ -298,7 +298,7 @@ if duration > 40320:
 try:
     timeout_duration = timedelta(minutes=duration)
     await member.timeout(timeout_duration, reason=f"Par {ctx.author} - {raison}")
-
+    
     embed = discord.Embed(
         title="🔇 Membre timeout",
         description=f"**{member.display_name}** a été mis en timeout",
@@ -309,7 +309,7 @@ try:
     embed.add_field(name="📝 Raison", value=raison, inline=False)
     embed.add_field(name="👮 Modérateur", value=ctx.author.mention, inline=False)
     embed.set_thumbnail(url=member.display_avatar.url)
-
+    
     await ctx.send(embed=embed)
 
 except discord.Forbidden:
@@ -328,7 +328,7 @@ return await ctx.send(“❌ Ce membre n’est pas en timeout !”)
 ```
 try:
     await member.timeout(None, reason=f"Démuté par {ctx.author}")
-
+    
     embed = discord.Embed(
         title="🔊 Membre démuté",
         description=f"**{member.display_name}** peut de nouveau parler",
@@ -337,7 +337,7 @@ try:
     )
     embed.add_field(name="👮 Modérateur", value=ctx.author.mention, inline=False)
     embed.set_thumbnail(url=member.display_avatar.url)
-
+    
     await ctx.send(embed=embed)
 
 except Exception as e:

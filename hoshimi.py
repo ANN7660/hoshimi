@@ -8,6 +8,8 @@ import os
 
 WELCOME_CHANNEL_ID = 1423555370948886581
 LEAVE_CHANNEL_ID = 9876543210987654321
+WELCOME_EMBED_CHANNEL_ID = None  # Salon pour message avec embed
+WELCOME_SIMPLE_CHANNEL_ID = None  # Salon pour message simple
 
 # Configuration des intents
 
@@ -37,42 +39,77 @@ async def on_ready():
 @bot.event
 async def on_member_join(member):
     """Message de bienvenue élégant avec embed et message simple"""
-    welcome_channel = bot.get_channel(WELCOME_CHANNEL_ID)
-
-    if not welcome_channel:
-        for channel_name in ['bienvenue', 'général', 'welcome', 'general']:
-            welcome_channel = discord.utils.get(member.guild.channels, name=channel_name)
-            if welcome_channel:
-                break
+    
+    # Message avec embed dans le salon configuré
+    if WELCOME_EMBED_CHANNEL_ID:
+        embed_channel = bot.get_channel(WELCOME_EMBED_CHANNEL_ID)
+        if embed_channel:
+            member_count = len(member.guild.members)
+            
+            welcome_embed = discord.Embed(
+                title="🌸 Bienvenue sur Hoshimi !",
+                description=f"Salut {member.mention} ! 👋\n\nNous sommes ravis de t'accueillir dans notre communauté !\nTu es notre **{member_count}ème** membre ! 🎉",
+                color=discord.Color.purple(),
+                timestamp=datetime.now()
+            )
+            
+            welcome_embed.add_field(
+                name="📝 Pour bien commencer",
+                value="• Va te présenter\n• Explore les salons\n• Respecte les règles\n• Amuse-toi bien !",
+                inline=False
+            )
+            
+            welcome_embed.set_thumbnail(url=member.display_avatar.url)
+            welcome_embed.set_image(url=member.guild.icon.url if member.guild.icon else member.display_avatar.url)
+            welcome_embed.set_footer(text="Équipe Hoshimi", icon_url=member.guild.icon.url if member.guild.icon else None)
+            
+            await embed_channel.send(embed=welcome_embed)
+    
+    # Message simple dans le salon configuré
+    if WELCOME_SIMPLE_CHANNEL_ID:
+        simple_channel = bot.get_channel(WELCOME_SIMPLE_CHANNEL_ID)
+        if simple_channel:
+            message_simple = f"Bienvenue {member.mention} sur Hoshimi ! 💫"
+            await simple_channel.send(message_simple)
+    
+    # Si aucun salon n'est configuré, utiliser l'ancien système
+    if not WELCOME_EMBED_CHANNEL_ID and not WELCOME_SIMPLE_CHANNEL_ID:
+        welcome_channel = bot.get_channel(WELCOME_CHANNEL_ID)
+        
         if not welcome_channel:
-            welcome_channel = member.guild.system_channel
+            for channel_name in ['bienvenue', 'général', 'welcome', 'general']:
+                welcome_channel = discord.utils.get(member.guild.channels, name=channel_name)
+                if welcome_channel:
+                    break
+            if not welcome_channel:
+                welcome_channel = member.guild.system_channel
 
-    if welcome_channel:
-        member_count = len(member.guild.members)
-        
-        # Premier message - Embed avec image
-        welcome_embed = discord.Embed(
-            title="🌸 Bienvenue sur Hoshimi !",
-            description=f"Salut {member.mention} ! 👋\n\nNous sommes ravis de t'accueillir dans notre communauté !\nTu es notre **{member_count}ème** membre ! 🎉",
-            color=discord.Color.purple(),
-            timestamp=datetime.now()
-        )
-        
-        welcome_embed.add_field(
-            name="📝 Pour bien commencer",
-            value="• Va te présenter\n• Explore les salons\n• Respecte les règles\n• Amuse-toi bien !",
-            inline=False
-        )
-        
-        welcome_embed.set_thumbnail(url=member.display_avatar.url)
-        welcome_embed.set_image(url=member.guild.icon.url if member.guild.icon else member.display_avatar.url)
-        welcome_embed.set_footer(text="Équipe Hoshimi", icon_url=member.guild.icon.url if member.guild.icon else None)
-        
-        await welcome_channel.send(embed=welcome_embed)
-        
-        # Deuxième message - Simple texte
-        message_simple = f"Bienvenue {member.mention} sur Hoshimi ! 💫"
-        await welcome_channel.send(message_simple)
+        if welcome_channel:
+            member_count = len(member.guild.members)
+            
+            # Premier message - Embed avec image
+            welcome_embed = discord.Embed(
+                title="🌸 Bienvenue sur Hoshimi !",
+                description=f"Salut {member.mention} ! 👋\n\nNous sommes ravis de t'accueillir dans notre communauté !\nTu es notre **{member_count}ème** membre ! 🎉",
+                color=discord.Color.purple(),
+                timestamp=datetime.now()
+            )
+            
+            welcome_embed.add_field(
+                name="📝 Pour bien commencer",
+                value="• Va te présenter\n• Explore les salons\n• Respecte les règles\n• Amuse-toi bien !",
+                inline=False
+            )
+            
+            welcome_embed.set_thumbnail(url=member.display_avatar.url)
+            welcome_embed.set_image(url=member.guild.icon.url if member.guild.icon else member.display_avatar.url)
+            welcome_embed.set_footer(text="Équipe Hoshimi", icon_url=member.guild.icon.url if member.guild.icon else None)
+            
+            await welcome_channel.send(embed=welcome_embed)
+            
+            # Deuxième message - Simple texte
+            message_simple = f"Bienvenue {member.mention} sur Hoshimi ! 💫"
+            await welcome_channel.send(message_simple)
 
     # MP de bienvenue
     try:
@@ -136,11 +173,37 @@ async def on_member_remove(member):
 @bot.command(name='welcomechat')
 @commands.has_permissions(administrator=True)
 async def set_welcome_channel(ctx, channel: discord.TextChannel):
-    """Configure le salon de bienvenue"""
+    """Configure le salon de bienvenue (ancien système)"""
     global WELCOME_CHANNEL_ID
     WELCOME_CHANNEL_ID = channel.id
 
     await ctx.send(f"✅ Les messages de bienvenue seront envoyés dans {channel.mention}")
+
+@bot.command(name='welcomeembed')
+@commands.has_permissions(administrator=True)
+async def set_welcome_embed_channel(ctx, channel: discord.TextChannel):
+    """Configure le salon pour le message de bienvenue avec embed"""
+    global WELCOME_EMBED_CHANNEL_ID
+    WELCOME_EMBED_CHANNEL_ID = channel.id
+
+    embed = discord.Embed(
+        description=f"✅ Le message de bienvenue **avec embed** sera envoyé dans {channel.mention}",
+        color=discord.Color.green()
+    )
+    await ctx.send(embed=embed)
+
+@bot.command(name='welcomesimple')
+@commands.has_permissions(administrator=True)
+async def set_welcome_simple_channel(ctx, channel: discord.TextChannel):
+    """Configure le salon pour le message de bienvenue simple"""
+    global WELCOME_SIMPLE_CHANNEL_ID
+    WELCOME_SIMPLE_CHANNEL_ID = channel.id
+
+    embed = discord.Embed(
+        description=f"✅ Le message de bienvenue **simple** sera envoyé dans {channel.mention}",
+        color=discord.Color.green()
+    )
+    await ctx.send(embed=embed)
 
 @bot.command(name='leavechat')
 @commands.has_permissions(administrator=True)  

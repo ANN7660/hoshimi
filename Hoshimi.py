@@ -102,11 +102,7 @@ async def help_cmd(ctx):
         "`+slowmode <secondes>` - Mode lent"
     ), inline=False)
     
-    e.add_field(name="🎮 Niveaux & XP", value=(
-        "`+rank [@user]` - Voir son niveau\n"
-        "`+leaderboard` - Top niveaux serveur\n"
-        "`+setlevelrole <niveau> @role` - Rôle par niveau"
-    ), inline=False)
+
     
     e.add_field(name="💰 Économie", value=(
         "`+balance [@user]` - Voir son argent\n"

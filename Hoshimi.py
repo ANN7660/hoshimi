@@ -30,7 +30,6 @@ def load_data():
         "user_invites": {}, 
         "allowed_links": {},
         "warnings": {},
-        "levels": {},
         "economy": {},
         "giveaways": {},
         "reaction_roles": {},
@@ -101,8 +100,6 @@ async def help_cmd(ctx):
         "`+lock` / `+unlock` - Verrouiller salon\n"
         "`+slowmode <secondes>` - Mode lent"
     ), inline=False)
-    
-
     
     e.add_field(name="💰 Économie", value=(
         "`+balance [@user]` - Voir son argent\n"
@@ -363,7 +360,7 @@ async def slowmode(ctx, seconds: int):
     await ctx.channel.edit(slowmode_delay=seconds)
     await ctx.send(f"⏱️ Mode lent: {seconds}s")
 
-# === LEVELS & XP ===
+# === MESSAGE HANDLER ===
 @bot.event
 async def on_message(message):
     if message.author.bot or not message.guild:
@@ -371,26 +368,6 @@ async def on_message(message):
         return
     
     gid = str(message.guild.id)
-    uid = str(message.author.id)
-    
-    # XP System
-    data.setdefault("levels", {}).setdefault(gid, {}).setdefault(uid, {"xp": 0, "level": 1})
-    data["levels"][gid][uid]["xp"] += random.randint(15, 25)
-    
-    xp = data["levels"][gid][uid]["xp"]
-    level = data["levels"][gid][uid]["level"]
-    xp_needed = level * 100
-    
-    if xp >= xp_needed:
-        data["levels"][gid][uid]["level"] += 1
-        data["levels"][gid][uid]["xp"] = 0
-        save_data(data)
-        
-        e = discord.Embed(title="🎉 Level UP!", color=0xf1c40f)
-        e.description = f"{message.author.mention} est maintenant niveau **{level + 1}** !"
-        await message.channel.send(embed=e)
-    else:
-        save_data(data)
     
     # Link filter
     allowed_channels = data.get("allowed_links", {}).get(gid, [])
@@ -409,38 +386,6 @@ async def on_message(message):
             break
     
     await bot.process_commands(message)
-
-@bot.command(name="rank")
-async def rank(ctx, member: discord.Member = None):
-    member = member or ctx.author
-    gid = str(ctx.guild.id)
-    uid = str(member.id)
-    
-    user_data = data.get("levels", {}).get(gid, {}).get(uid, {"xp": 0, "level": 1})
-    
-    e = discord.Embed(title=f"📊 Rank de {member.display_name}", color=0x9b59b6)
-    e.add_field(name="Niveau", value=f"**{user_data['level']}**", inline=True)
-    e.add_field(name="XP", value=f"**{user_data['xp']}** / {user_data['level'] * 100}", inline=True)
-    e.set_thumbnail(url=member.display_avatar.url)
-    await ctx.send(embed=e)
-
-@bot.command(name="leaderboard")
-async def leaderboard(ctx):
-    gid = str(ctx.guild.id)
-    levels = data.get("levels", {}).get(gid, {})
-    
-    sorted_users = sorted(levels.items(), key=lambda x: (x[1]["level"], x[1]["xp"]), reverse=True)[:10]
-    
-    e = discord.Embed(title="🏆 Top 10 Niveaux", color=0xf39c12)
-    for i, (uid, udata) in enumerate(sorted_users, 1):
-        user = ctx.guild.get_member(int(uid))
-        if user:
-            e.add_field(
-                name=f"#{i} - {user.display_name}",
-                value=f"Niveau **{udata['level']}** | XP: {udata['xp']}",
-                inline=False
-            )
-    await ctx.send(embed=e)
 
 # === ECONOMY ===
 @bot.command(name="balance", aliases=["bal"])

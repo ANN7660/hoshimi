@@ -1,3 +1,170 @@
+@bot.command(name="help")#!/usr/bin/env python3
+import os, json, threading, http.server, socketserver, asyncio, datetime, re, random
+import discord
+from discord.ext import commands, tasks
+from discord.ui import View, Button, Select, Modal, TextInput
+
+# === Keep Alive ===
+def keep_alive():
+    port = int(os.environ.get("PORT", 8080))
+    class QuietHandler(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, *a): pass
+    with socketserver.TCPServer(("", port), QuietHandler) as httpd:
+        print(f"[keep-alive] HTTP running on port {port}")
+        httpd.serve_forever()
+threading.Thread(target=keep_alive, daemon=True).start()
+
+# === Data ===
+DATA_FILE = "hoshimi_data.json"
+
+def load_data():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {
+        "config": {}, 
+        "tickets": {}, 
+        "invites": {}, 
+        "roles_invites": {}, 
+        "temp_vocs": {}, 
+        "user_invites": {}, 
+        "allowed_links": {},
+        "warnings": {},
+        "economy": {},
+        "giveaways": {},
+        "reaction_roles": {},
+        "auto_responses": {},
+        "suggestions": {}
+    }
+
+def save_data(d):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(d, f, indent=2, ensure_ascii=False)
+
+data = load_data()
+
+def get_conf(gid, key, default=None):
+    return data.get("config", {}).get(str(gid), {}).get(key, default)
+
+def set_conf(gid, key, value):
+    data.setdefault("config", {}).setdefault(str(gid), {})[key] = value
+    save_data(data)
+
+# === KAWAII DATA ===
+KAWAII_COLORS = [0xff69b4, 0xff1493, 0xffc0cb, 0xffb6c1, 0xff69b4]
+KAWAII_EMOJIS = ["💖", "✨", "🌸", "🎀", "💕", "🌺", "⭐", "💗", "🦄", "🌈", "🧁", "🍰", "🎉", "💫", "🌟", "🍓", "🌷", "🦋", "🎨", "🎪"]
+
+def random_kawaii_color():
+    return random.choice(KAWAII_COLORS)
+
+def random_kawaii_emojis(count=3):
+    return " ".join(random.sample(KAWAII_EMOJIS, min(count, len(KAWAII_EMOJIS))))
+
+# === Bot Init ===
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix="+", intents=intents, help_command=None)
+
+@bot.event
+async def on_ready():
+    print(f"✨ Bot connecté: {bot.user} 🌸")
+    await bot.change_presence(activity=discord.Game(name="✨ +help 💖"))
+    check_giveaways.start()
+    
+    for guild in bot.guilds:
+        try:
+            invites = await guild.invites()
+            data["invites"][str(guild.id)] = {inv.code: inv.uses for inv in invites}
+            save_data(data)
+        except:
+            pass
+
+# === KAWAII EVENTS ===
+@bot.event
+async def on_member_join(member):
+    # Auto-role
+    auto_role_id = get_conf(member.guild.id, "auto_role")
+    if auto_role_id:
+        auto_role = member.guild.get_role(auto_role_id)
+        if auto_role:
+            try:
+                await member.add_roles(auto_role)
+            except:
+                pass
+    
+    # Welcome embed
+    wc = get_conf(member.guild.id, "welcome_embed_channel")
+    if wc:
+        ch = member.guild.get_channel(wc)
+        if ch:
+            e = discord.Embed(
+                title=f"🌸 Bienvenue {member.display_name} ! 🌸",
+                description=f"✨ Bienvenue {member.mention} ! Tu es le **{member.guild.member_count}ème** membre ! 💖\n\nAmuse-toi bien sur le serveur ! 🌸",
+                color=0xff69b4
+            )
+            e.set_thumbnail(url=member.display_avatar.url)
+            e.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3o4NGljeWVlcXh2Y3FtajF4M2pndTEyeWh1ZXR3YXVhMG9tZjkydCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Xl0oVz3eb9mfu/giphy.gif")
+            e.add_field(name="💫 Membre", value=member.mention, inline=True)
+            e.add_field(name="🎉 Total", value=f"**{member.guild.member_count}** membres 💖", inline=True)
+            e.set_footer(text=f"✨ {member.guild.name} 💖", icon_url=member.guild.icon.url if member.guild.icon else None)
+            await ch.send(f"🎊 {member.mention} 🎊", embed=e)
+    
+    # Welcome text
+    wt = get_conf(member.guild.id, "welcome_text_channel")
+    if wt:
+        ch = member.guild.get_channel(wt)
+        if ch:
+            messages = [
+                f"✨ Bienvenue {member.mention} ! Content de te voir ici ! 🌸",
+                f"🎀 {member.mention} a rejoint ! Bienvenue ! 💖",
+                f"🌸 {member.mention} est arrivé ! Amuse-toi bien ! ✨",
+            ]
+            await ch.send(random.choice(messages))
+
+@bot.event
+async def on_member_remove(member):
+    # Leave embed
+    lc = get_conf(member.guild.id, "leave_embed_channel")
+    if lc:
+        ch = member.guild.get_channel(lc)
+        if ch:
+            e = discord.Embed(
+                title=f"👋 Au revoir {member.display_name}",
+                description=f"🌸 {member.mention} a quitté le serveur... 💔\n\nOn espère te revoir bientôt ! ✨",
+                color=0x9370db
+            )
+            e.set_thumbnail(url=member.display_avatar.url)
+            e.add_field(name="👋 Membre", value=member.mention, inline=True)
+            e.add_field(name="😢 Membres restants", value=f"**{member.guild.member_count}** 💔", inline=True)
+            e.set_footer(text=f"✨ Au revoir", icon_url=member.guild.icon.url if member.guild.icon else None)
+            await ch.send(embed=e)
+
+@bot.event
+async def on_message(message):
+    if message.author.bot or not message.guild:
+        await bot.process_commands(message)
+        return
+    
+    gid = str(message.guild.id)
+    
+    # Link filter
+    allowed_channels = data.get("allowed_links", {}).get(gid, [])
+    if message.channel.id not in allowed_channels:
+        url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+        if re.search(url_pattern, message.content):
+            await message.delete()
+            await message.channel.send(f"❌ {message.author.mention}, les liens sont interdits ici !", delete_after=5)
+            return
+    
+    # Auto responses
+    auto_resp = data.get("auto_responses", {}).get(gid, {})
+    for trigger, response in auto_resp.items():
+        if trigger.lower() in message.content.lower():
+            await message.channel.send(f"{response}")
+            break
+    
+    await bot.process_commands(message)
+
+# === HELP ===
 @bot.command(name="help")
 async def help_cmd(ctx):
     e = discord.Embed(title="🌸 Commandes Hoshimi Kawaii 🌸", color=0xff69b4)
@@ -157,8 +324,8 @@ bot = commands.Bot(command_prefix="+", intents=intents, help_command=None)
 
 @bot.event
 async def on_ready():
-    print(f"✨💖🌸 Bot ultra kawaii connecté: {bot.user} 🌸💖✨")
-    await bot.change_presence(activity=discord.Game(name="✨💖 hoshimi ultra kawaii | +help 💖✨"))
+    print(f"✨ Bot connecté: {bot.user} 🌸")
+    await bot.change_presence(activity=discord.Game(name="✨ +help 💖"))
     check_giveaways.start()
     
     for guild in bot.guilds:
@@ -205,10 +372,9 @@ async def on_member_join(member):
         ch = member.guild.get_channel(wt)
         if ch:
             messages = [
-                f"💖✨ NYA NYA ! Bienvenue {member.mention} ! Tu es trop kawaii pour ce serveur ! 🌸💕",
-                f"🎀💫 YATTA ! {member.mention} est arrivé(e) ! On va s'amuser comme des fous ! (◕‿◕)♡ 🌟",
-                f"🌈💖 SUGOI ! {member.mention} a rejoint la famille kawaii ! Prépare-toi à une overdose de mignonnerie ! ✨🎉",
-                f"🌸💕 Ohayō {member.mention} ! Bienvenue dans le serveur le plus adorable de l'univers ! 🦄✨"
+                f"✨ Bienvenue {member.mention} ! Content de te voir ici ! 🌸",
+                f"🎀 {member.mention} a rejoint ! Bienvenue ! 💖",
+                f"🌸 {member.mention} est arrivé ! Amuse-toi bien ! ✨",
             ]
             await ch.send(random.choice(messages))
 
@@ -364,9 +530,9 @@ async def help_cmd(ctx):
 async def config_cmd(ctx):
     conf = data.get("config", {}).get(str(ctx.guild.id), {})
     e = discord.Embed(
-        title="⚙️✨💖 CONFIGURATION ULTRA KAWAII 💖✨⚙️",
-        description="🌸 Voici toute la configuration mignonne de ton serveur adorable ! (◕‿◕)♡ 🌟",
-        color=random_kawaii_color()
+        title="⚙️ Configuration",
+        description="🌸 Voici la configuration actuelle du serveur",
+        color=0xff69b4
     )
     
     config_found = False
@@ -384,9 +550,9 @@ async def config_cmd(ctx):
                 e.add_field(name=f"{emoji} {name}", value=f"<#{val}>", inline=False)
     
     if not config_found:
-        e.description = "🌸✨ Aucune configuration trouvée ! Configure-moi pour que je sois encore plus kawaii ! 💖🎀"
+        e.description = "✨ Aucune configuration trouvée ! Configure le bot avec les commandes disponibles."
     
-    e.set_footer(text="✨💕 Configuration ultra mignonne ! Nya~ 🌸💖")
+    e.set_footer(text="✨ Configuration du serveur 💖")
     await ctx.send(embed=e)
 
 # === CONFIGURATION COMMANDS ===

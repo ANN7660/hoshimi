@@ -273,6 +273,82 @@ async def meme(ctx):
     await ctx.send(embed=e)
 
 # === UTILITY ===
+@bot.command(name="rules")
+@commands.has_permissions(manage_guild=True)
+async def rules(ctx):
+    e = discord.Embed(
+        title="📜✨ Règles du Serveur ✨📜",
+        description="🌸 Voici les règles à respecter pour garder une bonne ambiance ! 💖",
+        color=0xff69b4
+    )
+    e.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+    
+    e.add_field(
+        name="1️⃣ 🌸 Respect",
+        value="Sois respectueux envers tous les membres ! Pas d'insultes, de harcèlement ou de discrimination.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="2️⃣ 💬 Spam",
+        value="Ne spam pas les salons ! Évite les messages répétitifs et les mentions abusives.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="3️⃣ 🔞 Contenu",
+        value="Pas de contenu NSFW, violent ou inapproprié. Garde le serveur family-friendly !",
+        inline=False
+    )
+    
+    e.add_field(
+        name="4️⃣ 📢 Publicité",
+        value="Pas de publicité sans autorisation ! Ne partage pas d'invitations Discord non autorisées.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="5️⃣ 🎭 Pseudonyme",
+        value="Utilise un pseudo approprié et mentionnable. Évite les pseudos offensants.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="6️⃣ 🎤 Vocal",
+        value="Respecte les autres en vocal ! Pas de musique forte ou de bruits parasites.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="7️⃣ ⚠️ Staff",
+        value="Écoute et respecte les décisions du staff. En cas de problème, contacte un modérateur.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="8️⃣ 💖 Amusement",
+        value="Amuse-toi et profite du serveur ! On est là pour passer un bon moment ensemble ! 🌸",
+        inline=False
+    )
+    
+    e.set_footer(text="✨ En rejoignant ce serveur, tu acceptes ces règles 💖", icon_url=ctx.bot.user.avatar.url if ctx.bot.user.avatar else None)
+    e.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3o4NGljeWVlcXh2Y3FtajF4M2pndTEyeWh1ZXR3YXVhMG9tZjkydCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Xl0oVz3eb9mfu/giphy.gif")
+    
+    await ctx.send(embed=e)
+
+@bot.command(name="say")
+@commands.has_permissions(manage_messages=True)
+async def say(ctx, *, message: str):
+    await ctx.message.delete()
+    await ctx.send(message)
+
+@bot.command(name="embed")
+@commands.has_permissions(manage_messages=True)
+async def embed_say(ctx, *, message: str):
+    await ctx.message.delete()
+    e = discord.Embed(description=message, color=0xff69b4)
+    await ctx.send(embed=e)
+
 @bot.command(name="serverinfo")
 async def serverinfo(ctx):
     guild = ctx.guild
@@ -1143,5 +1219,48 @@ async def gstart(ctx, duration: str, *, prize: str):
         "guild": gid
     }
     save_data(data)
+
+@bot.command(name="gend")
+@commands.has_permissions(manage_guild=True)
+async def gend(ctx, message_id: int):
+    msg_id = str(message_id)
+    if msg_id not in data.get("giveaways", {}):
+        await ctx.send("❌ Giveaway introuvable ! 💔")
+        return
+    
+    gdata = data["giveaways"][msg_id]
+    try:
+        msg = await ctx.channel.fetch_message(message_id)
+        reaction = discord.utils.get(msg.reactions, emoji="🎉")
+        if reaction:
+            users = [user async for user in reaction.users() if not user.bot]
+            if users:
+                winner = random.choice(users)
+                e = discord.Embed(title="🎉 Giveaway Terminé !", color=0xff69b4)
+                e.description = f"**🏆 Gagnant:** {winner.mention}\n**🎀 Prix:** {gdata['prize']}\n\n💖 Félicitations !"
+                await ctx.send(embed=e)
+            else:
+                await ctx.send("❌ Aucun participant ! 💔")
+        
+        del data["giveaways"][msg_id]
+        save_data(data)
+    except:
+        await ctx.send("❌ Erreur lors de la fin du giveaway ! 💔")
+
+@bot.command(name="greroll")
+@commands.has_permissions(manage_guild=True)
+async def greroll(ctx, message_id: int):
+    try:
+        msg = await ctx.channel.fetch_message(message_id)
+        reaction = discord.utils.get(msg.reactions, emoji="🎉")
+        if reaction:
+            users = [user async for user in reaction.users() if not user.bot]
+            if users:
+                winner = random.choice(users)
+                await ctx.send(f"🎉 Nouveau gagnant : {winner.mention} ! Félicitations ! 💖")
+            else:
+                await ctx.send("❌ Aucun participant ! 💔")
+    except:
+        await ctx.send("❌ Message introuvable ! 💔")
 
 @tasks.loop(seconds=30)

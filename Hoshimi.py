@@ -57,7 +57,7 @@ bot = commands.Bot(command_prefix="+", intents=intents, help_command=None)
 @bot.event
 async def on_ready():
     print(f"✨ Bot connecté: {bot.user} 🌸")
-    await bot.change_presence(activity=discord.Game(name="✨ +help 💖"))
+    await bot.change_presence(activity=discord.Game(name="✨ +help | Mode Kawaii 💖"))
     check_giveaways.start()
     
     for guild in bot.guilds:
@@ -309,6 +309,318 @@ async def help_cmd(ctx):
     
     e.set_footer(text="✨ Bot kawaii créé avec amour 💖", icon_url=ctx.bot.user.avatar.url if ctx.bot.user.avatar else None)
     await ctx.send(embed=e)
+
+@bot.command(name="say")
+@commands.has_permissions(manage_messages=True)
+async def say(ctx, *, message: str):
+    await ctx.message.delete()
+    await ctx.send(message)
+
+@bot.command(name="embed")
+@commands.has_permissions(manage_messages=True)
+async def embed_say(ctx, *, message: str):
+    await ctx.message.delete()
+    e = discord.Embed(description=message, color=0xff69b4)
+    await ctx.send(embed=e)
+
+@bot.command(name="serverinfo")
+async def serverinfo(ctx):
+    guild = ctx.guild
+    
+    e = discord.Embed(title=f"🏰 Infos Serveur", color=0xff69b4)
+    
+    if guild.icon:
+        e.set_thumbnail(url=guild.icon.url)
+    
+    e.add_field(name="💫 Nom", value=f"**{guild.name}**", inline=True)
+    e.add_field(name="🆔 ID", value=f"`{guild.id}`", inline=True)
+    e.add_field(name="👑 Propriétaire", value=guild.owner.mention if guild.owner else "Inconnu", inline=True)
+    e.add_field(name="👥 Membres", value=f"**{guild.member_count}** 💖", inline=True)
+    e.add_field(name="💬 Salons", value=f"**{len(guild.channels)}** 🌸", inline=True)
+    e.add_field(name="🎭 Rôles", value=f"**{len(guild.roles)}** 🎀", inline=True)
+    e.add_field(name="📅 Créé le", value=guild.created_at.strftime("%d/%m/%Y"), inline=True)
+    e.add_field(name="🌟 Niveau Boost", value=f"**Niveau {guild.premium_tier}** 💫", inline=True)
+    
+    e.set_footer(text="✨ Infos du serveur 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="userinfo")
+async def userinfo(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    
+    e = discord.Embed(title=f"👤 Infos de {member.display_name}", color=0xff69b4)
+    e.set_thumbnail(url=member.display_avatar.url)
+    
+    e.add_field(name="💫 Nom", value=f"**{member.name}**", inline=True)
+    e.add_field(name="🆔 ID", value=f"`{member.id}`", inline=True)
+    e.add_field(name="💬 Surnom", value=member.display_name, inline=True)
+    e.add_field(name="📅 Compte créé", value=member.created_at.strftime("%d/%m/%Y"), inline=True)
+    e.add_field(name="🎉 A rejoint", value=member.joined_at.strftime("%d/%m/%Y") if member.joined_at else "Inconnu", inline=True)
+    e.add_field(name="🎭 Rôles", value=f"**{len(member.roles)-1}** rôles 💖", inline=True)
+    
+    if member.premium_since:
+        e.add_field(name="💎 Boost depuis", value=member.premium_since.strftime("%d/%m/%Y"), inline=True)
+    
+    e.set_footer(text="✨ Infos utilisateur 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="avatar")
+async def avatar(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    
+    e = discord.Embed(title=f"🖼️ Avatar de {member.display_name}", color=0xff69b4)
+    e.set_image(url=member.display_avatar.url)
+    e.add_field(name="🔗 Lien", value=f"[Clique ici !]({member.display_avatar.url})", inline=False)
+    e.set_footer(text="✨ Avatar 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="poll")
+async def poll(ctx, *, question: str):
+    e = discord.Embed(title="📊 Sondage", description=f"**{question}**", color=0xff69b4)
+    e.add_field(name="💕 Comment voter", value="Réagis avec 👍 pour OUI ou 👎 pour NON !", inline=False)
+    e.set_footer(text=f"✨ Sondage créé par {ctx.author.display_name} 💖", icon_url=ctx.author.display_avatar.url)
+    
+    msg = await ctx.send(embed=e)
+    await msg.add_reaction("👍")
+    await msg.add_reaction("👎")
+
+# === INVITATIONS ===
+@bot.command(name="roleinvite")
+@commands.has_permissions(manage_roles=True)
+async def role_invite(ctx, invites_needed: int, role: discord.Role):
+    gid = str(ctx.guild.id)
+    data.setdefault("roles_invites", {})[gid] = {
+        "invites": invites_needed,
+        "role": role.id
+    }
+    save_data(data)
+    
+    e = discord.Embed(title="✅ Rôle d'Invitation Configuré", color=0xff69b4)
+    e.description = f"🌸 Les membres qui invitent **{invites_needed}** personnes recevront {role.mention} ! 💖"
+    e.set_footer(text="✨ Système d'invitations configuré 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="invites")
+async def invites(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    gid = str(ctx.guild.id)
+    uid = str(member.id)
+    
+    invite_count = data.get("user_invites", {}).get(gid, {}).get(uid, 0)
+    
+    e = discord.Embed(title=f"💌 Invitations de {member.display_name}", color=0xff69b4)
+    e.set_thumbnail(url=member.display_avatar.url)
+    e.add_field(name="🎀 Invitations Totales", value=f"**{invite_count}** invitations 🌟", inline=False)
+    
+    role_config = data.get("roles_invites", {}).get(gid, {})
+    if role_config:
+        required = role_config.get("invites", 0)
+        if invite_count >= required:
+            e.add_field(name="👑 Statut", value=f"**TU AS LE RÔLE !** 🎉", inline=False)
+        else:
+            remaining = required - invite_count
+            e.add_field(name="📊 Progression", value=f"Plus que **{remaining}** invitation(s) ! 💕", inline=False)
+    
+    e.set_footer(text="✨ Invitations 💖")
+    await ctx.send(embed=e)
+
+# === LINKS ===
+@bot.command(name="allowlink")
+@commands.has_permissions(manage_channels=True)
+async def allow_link(ctx, channel: discord.TextChannel):
+    gid = str(ctx.guild.id)
+    data.setdefault("allowed_links", {}).setdefault(gid, [])
+    if channel.id not in data["allowed_links"][gid]:
+        data["allowed_links"][gid].append(channel.id)
+        save_data(data)
+    
+    await ctx.send(f"✅ Les liens sont autorisés dans {channel.mention} ! 💖")
+
+@bot.command(name="disallowlink")
+@commands.has_permissions(manage_channels=True)
+async def disallow_link(ctx, channel: discord.TextChannel):
+    gid = str(ctx.guild.id)
+    if gid in data.get("allowed_links", {}) and channel.id in data["allowed_links"][gid]:
+        data["allowed_links"][gid].remove(channel.id)
+        save_data(data)
+    
+    await ctx.send(f"✅ Les liens sont bloqués dans {channel.mention} ! 💖")
+
+# === TICKETS ===
+@bot.command(name="ticket")
+async def ticket(ctx):
+    category = discord.utils.get(ctx.guild.categories, name="🎫 Tickets")
+    if not category:
+        category = await ctx.guild.create_category("🎫 Tickets")
+    
+    ticket_channel = await ctx.guild.create_text_channel(
+        name=f"ticket-{ctx.author.name}",
+        category=category,
+        topic=f"Ticket de {ctx.author.display_name} 💖"
+    )
+    
+    await ticket_channel.set_permissions(ctx.guild.default_role, read_messages=False)
+    await ticket_channel.set_permissions(ctx.author, read_messages=True, send_messages=True)
+    
+    e = discord.Embed(title="🎫 Ticket Créé", color=0xff69b4)
+    e.description = f"🌸 Bienvenue {ctx.author.mention} ! Un staff va venir t'aider ! 💖\n\n🚪 Utilise `+close` pour fermer ce ticket."
+    e.set_thumbnail(url=ctx.author.display_avatar.url)
+    e.set_footer(text="✨ Ticket 💖")
+    
+    await ticket_channel.send(f"🎀 {ctx.author.mention} 🎀", embed=e)
+    await ctx.send(f"✅ Ton ticket a été créé ! Va dans {ticket_channel.mention} ! 💖")
+
+@bot.command(name="close")
+async def close_ticket(ctx):
+    if "ticket-" in ctx.channel.name:
+        await ctx.send("🚪 Ce ticket va se fermer dans **5 secondes** ! 💖")
+        await asyncio.sleep(5)
+        await ctx.channel.delete()
+    else:
+        await ctx.send("❌ Cette commande ne fonctionne que dans les tickets ! 💔")
+
+@bot.command(name="ticketpanel")
+@commands.has_permissions(manage_guild=True)
+async def ticket_panel(ctx):
+    e = discord.Embed(title="🎫 Panel de Tickets", color=0xff69b4)
+    e.description = f"🌸 **Besoin d'aide ?**\n\nClique sur le bouton ci-dessous pour créer un ticket ! 💖"
+    e.set_footer(text="✨ Support disponible 24/7 💖")
+    
+    class TicketButton(Button):
+        def __init__(self):
+            super().__init__(label="🎫 Créer un Ticket", style=discord.ButtonStyle.primary, emoji="🎀")
+        
+        async def callback(self, interaction: discord.Interaction):
+            category = discord.utils.get(interaction.guild.categories, name="🎫 Tickets")
+            if not category:
+                category = await interaction.guild.create_category("🎫 Tickets")
+            
+            ticket_channel = await interaction.guild.create_text_channel(
+                name=f"ticket-{interaction.user.name}",
+                category=category,
+                topic=f"Ticket de {interaction.user.display_name} 💖"
+            )
+            
+            await ticket_channel.set_permissions(interaction.guild.default_role, read_messages=False)
+            await ticket_channel.set_permissions(interaction.user, read_messages=True, send_messages=True)
+            
+            ticket_e = discord.Embed(title="🎫 Ticket Créé", color=0xff69b4)
+            ticket_e.description = f"🌸 Bienvenue {interaction.user.mention} ! Un staff va venir t'aider ! 💖\n\n🚪 Utilise `+close` pour fermer ce ticket."
+            ticket_e.set_thumbnail(url=interaction.user.display_avatar.url)
+            ticket_e.set_footer(text="✨ Ticket 💖")
+            
+            await ticket_channel.send(f"🎀 {interaction.user.mention} 🎀", embed=ticket_e)
+            await interaction.response.send_message(f"✅ Ton ticket a été créé dans {ticket_channel.mention} ! 💖", ephemeral=True)
+    
+    view = View(timeout=None)
+    view.add_item(TicketButton())
+    
+    await ctx.send(embed=e, view=view)
+
+# === VOCAUX ===
+@bot.command(name="setupvoc")
+@commands.has_permissions(manage_channels=True)
+async def setup_voc(ctx, channel: discord.VoiceChannel):
+    set_conf(ctx.guild.id, "voc_trigger_channel", channel.id)
+    await ctx.send(f"✅ {channel.mention} est maintenant le trigger pour les vocaux temporaires ! 💖")
+
+@bot.command(name="createvoc")
+@commands.has_permissions(manage_channels=True)
+async def create_voc(ctx):
+    category = discord.utils.get(ctx.guild.categories, name="🎤 Vocaux")
+    if not category:
+        category = await ctx.guild.create_category("🎤 Vocaux")
+    
+    trigger_channel = await ctx.guild.create_voice_channel(
+        name="➕ Créer un Vocal 💖",
+        category=category
+    )
+    
+    set_conf(ctx.guild.id, "voc_trigger_channel", trigger_channel.id)
+    await ctx.send(f"✅ Vocal trigger créé ! Rejoins-le pour créer ton propre vocal ! 💖")
+
+# === SHOP ===
+@bot.command(name="shop")
+async def shop(ctx):
+    items = {
+        "🎀": {"name": "Badge Kawaii", "price": 500},
+        "🌸": {"name": "Fleur", "price": 300},
+        "💖": {"name": "Coeur", "price": 1000},
+        "⭐": {"name": "Étoile", "price": 750},
+        "🦄": {"name": "Licorne", "price": 2000}
+    }
+    
+    e = discord.Embed(title="🏪 Boutique", color=0xff69b4)
+    
+    for emoji, item in items.items():
+        e.add_field(
+            name=f"{emoji} **{item['name']}**",
+            value=f"💰 **{item['price']}** 💵",
+            inline=False
+        )
+    
+    e.set_footer(text="✨ Utilise +buy <item> 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="buy")
+async def buy(ctx, item: str):
+    items = {
+        "badge": {"emoji": "🎀", "name": "Badge Kawaii", "price": 500},
+        "fleur": {"emoji": "🌸", "name": "Fleur", "price": 300},
+        "coeur": {"emoji": "💖", "name": "Coeur", "price": 1000},
+        "étoile": {"emoji": "⭐", "name": "Étoile", "price": 750},
+        "licorne": {"emoji": "🦄", "name": "Licorne", "price": 2000}
+    }
+    
+    item = item.lower()
+    if item not in items:
+        await ctx.send(f"❌ Cet item n'existe pas ! Utilise `+shop` 💔")
+        return
+    
+    gid = str(ctx.guild.id)
+    uid = str(ctx.author.id)
+    
+    data.setdefault("economy", {}).setdefault(gid, {})
+    user_money = data["economy"][gid].get(uid, 0)
+    
+    item_data = items[item]
+    if user_money < item_data["price"]:
+        await ctx.send(f"❌ Tu n'as que **{user_money}** 💵 mais cet item coûte **{item_data['price']}** 💵 ! 💔")
+        return
+    
+    data["economy"][gid][uid] = user_money - item_data["price"]
+    save_data(data)
+    
+    e = discord.Embed(title="✅ Achat Réussi !", color=0xff69b4)
+    e.description = f"🌸 {ctx.author.mention} a acheté **{item_data['name']}** {item_data['emoji']} ! 💖"
+    e.add_field(name="💰 Prix", value=f"**{item_data['price']}** 💵", inline=True)
+    e.add_field(name="💎 Restant", value=f"**{data['economy'][gid][uid]}** 💵", inline=True)
+    e.set_footer(text="✨ Merci pour ton achat ! 💖")
+    await ctx.send(embed=e)
+
+# === ERROR HANDLER ===
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send(f"❌ {ctx.author.mention}, tu n'as pas les permissions ! 💔")
+    
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f"❌ {ctx.author.mention}, il manque des arguments ! Utilise `+help` 💔")
+    
+    elif isinstance(error, commands.CommandNotFound):
+        await ctx.send(f"❌ {ctx.author.mention}, cette commande n'existe pas ! Utilise `+help` 💔")
+    
+    else:
+        await ctx.send(f"❌ Une erreur est survenue : `{str(error)}` 💔")
+
+# === RUN BOT ===
+if __name__ == "__main__":
+    TOKEN = os.environ.get("DISCORD_TOKEN")
+    if not TOKEN:
+        print("❌ Token Discord manquant ! Configure DISCORD_TOKEN 💔")
+    else:
+        print("🌸 Démarrage du bot... 💖")
+        bot.run(TOKEN)
 
 # === CONFIG ===
 @bot.command(name="config")

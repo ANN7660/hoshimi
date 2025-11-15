@@ -1,4 +1,95 @@
-#!/usr/bin/env python3
+@bot.command(name="help")
+async def help_cmd(ctx):
+    e = discord.Embed(title="🌸 Commandes Hoshimi Kawaii 🌸", color=0xff69b4)
+    e.set_thumbnail(url="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3o4NGljeWVlcXh2Y3FtajF4M2pndTEyeWh1ZXR3YXVhMG9tZjkydCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Xl0oVz3eb9mfu/giphy.gif")
+    
+    e.add_field(name="⚙️ Configuration", value=(
+        "`+config` Configuration actuelle\n"
+        "`+setwelcome #channel <embed/text>` Message de bienvenue\n"
+        "`+setleave #channel <embed/text>` Message de départ\n"
+        "`+setlogs #channel` Salon de logs\n"
+        "`+setinvitation #channel` Logs invitations\n"
+        "`+setsuggestion #channel` Salon suggestions\n"
+        "`+rolejoin @role` Rôle automatique à l'arrivée"
+    ), inline=False)
+    
+    e.add_field(name="👥 Invitations", value=(
+        "`+roleinvite <nb> @role` Rôle par invitations\n"
+        "`+invites [@user]` Voir les invitations"
+    ), inline=False)
+    
+    e.add_field(name="🛡️ Modération", value=(
+        "`+warn @user <raison>` Avertir\n"
+        "`+warnings @user` Voir avertissements\n"
+        "`+clearwarns @user` Effacer avertissements\n"
+        "`+kick @user <raison>` Expulser\n"
+        "`+ban @user <raison>` Bannir\n"
+        "`+mute @user <durée>` Mute\n"
+        "`+unmute @user` Unmute\n"
+        "`+clear <nombre>` Supprimer messages\n"
+        "`+lock` / `+unlock` Verrouiller salon\n"
+        "`+slowmode <secondes>` Mode lent"
+    ), inline=False)
+    
+    e.add_field(name="💰 Économie", value=(
+        "`+balance [@user]` Voir son argent\n"
+        "`+daily` Bonus journalier\n"
+        "`+pay @user <montant>` Donner argent\n"
+        "`+shop` Boutique\n"
+        "`+buy <item>` Acheter un item"
+    ), inline=False)
+    
+    e.add_field(name="🎁 Giveaways", value=(
+        "`+gstart <durée> <prix>` Créer giveaway\n"
+        "`+gend <message_id>` Terminer giveaway\n"
+        "`+greroll <message_id>` Retirer gagnant"
+    ), inline=False)
+    
+    e.add_field(name="🎫 Tickets", value=(
+        "`+ticket` Créer ticket\n"
+        "`+ticketpanel` Panel tickets\n"
+        "`+close` Fermer ticket"
+    ), inline=False)
+    
+    e.add_field(name="🎤 Vocaux", value=(
+        "`+createvoc` Créer vocal trigger\n"
+        "`+setupvoc #channel` Configurer vocal"
+    ), inline=False)
+    
+    e.add_field(name="🔗 Liens", value=(
+        "`+allowlink #channel` Autoriser liens\n"
+        "`+disallowlink #channel` Bloquer liens"
+    ), inline=False)
+    
+    e.add_field(name="🤖 Auto-réponses", value=(
+        "`+addresponse <trigger> <réponse>` Ajouter\n"
+        "`+listresponses` Voir toutes\n"
+        "`+delresponse <trigger>` Supprimer"
+    ), inline=False)
+    
+    e.add_field(name="💡 Suggestions", value=(
+        "`+suggest <suggestion>` Faire suggestion\n"
+        "`+acceptsugg <id>` Accepter\n"
+        "`+denysugg <id>` Refuser"
+    ), inline=False)
+    
+    e.add_field(name="🎲 Fun", value=(
+        "`+8ball <question>` Boule magique\n"
+        "`+coinflip` Pile ou face\n"
+        "`+dice` Lancer dé\n"
+        "`+love @user1 @user2` % d'amour\n"
+        "`+meme` Meme"
+    ), inline=False)
+    
+    e.add_field(name="ℹ️ Utilitaire", value=(
+        "`+serverinfo` Infos serveur\n"
+        "`+userinfo [@user]` Infos utilisateur\n"
+        "`+avatar [@user]` Avatar\n"
+        "`+poll <question>` Sondage"
+    ), inline=False)
+    
+    e.set_footer(text="✨ Bot kawaii créé avec amour 💖", icon_url=ctx.bot.user.avatar.url if ctx.bot.user.avatar else None)
+    await ctx.send(embed=e)#!/usr/bin/env python3
 import os, json, threading, http.server, socketserver, asyncio, datetime, re, random
 import discord
 from discord.ext import commands, tasks
@@ -81,6 +172,16 @@ async def on_ready():
 # === KAWAII EVENTS ===
 @bot.event
 async def on_member_join(member):
+    # Auto-role
+    auto_role_id = get_conf(member.guild.id, "auto_role")
+    if auto_role_id:
+        auto_role = member.guild.get_role(auto_role_id)
+        if auto_role:
+            try:
+                await member.add_roles(auto_role)
+            except:
+                pass
+    
     # Welcome embed
     wc = get_conf(member.guild.id, "welcome_embed_channel")
     if wc:
@@ -92,7 +193,7 @@ async def on_member_join(member):
                 color=random_kawaii_color()
             )
             e.set_thumbnail(url=member.display_avatar.url)
-            e.set_image(url="https://i.imgur.com/KOaXSQZ.gif")
+            e.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3o4NGljeWVlcXh2Y3FtajF4M2pndTEyeWh1ZXR3YXVhMG9tZjkydCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Xl0oVz3eb9mfu/giphy.gif")
             e.add_field(name="💫 Membre Kawaii", value=member.mention, inline=True)
             e.add_field(name="🎉 Membres Total", value=f"**{member.guild.member_count}** personnes mignonnes ! 💖", inline=True)
             e.set_footer(text=f"✨💖 {member.guild.name} t'aime déjà ! 💖✨", icon_url=member.guild.icon.url if member.guild.icon else None)
@@ -137,24 +238,20 @@ async def on_message(message):
     
     gid = str(message.guild.id)
     
-    # KAWAII AUTO REACTIONS (15% de chance)
-    if random.randint(1, 100) <= 15:
-        await message.add_reaction(random.choice(KAWAII_EMOJIS))
-    
     # Link filter
     allowed_channels = data.get("allowed_links", {}).get(gid, [])
     if message.channel.id not in allowed_channels:
         url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
         if re.search(url_pattern, message.content):
             await message.delete()
-            await message.channel.send(f"❌🌸✨ {message.author.mention}, les liens sont interdits ici ! Sois kawaii ! ✨🌸❌", delete_after=5)
+            await message.channel.send(f"❌ {message.author.mention}, les liens sont interdits ici !", delete_after=5)
             return
     
     # Auto responses
     auto_resp = data.get("auto_responses", {}).get(gid, {})
     for trigger, response in auto_resp.items():
         if trigger.lower() in message.content.lower():
-            await message.channel.send(f"✨💖 {response} 💖✨")
+            await message.channel.send(f"{response}")
             break
     
     await bot.process_commands(message)
@@ -167,7 +264,7 @@ async def help_cmd(ctx):
         description="🎀 Voici toutes les commandes mignonnes du bot le plus adorable ! (◕‿◕)♡ 🌟",
         color=random_kawaii_color()
     )
-    e.set_thumbnail(url="https://i.imgur.com/9xPqm8L.gif")
+    e.set_thumbnail(url="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3o4NGljeWVlcXh2Y3FtajF4M2pndTEyeWh1ZXR3YXVhMG9tZjkydCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Xl0oVz3eb9mfu/giphy.gif")
     
     e.add_field(name=f"{random_kawaii_emojis(2)} ⚙️ Configuration Ultra Mignonne ⚙️", value=(
         "`+config` 📋✨ Configuration actuelle kawaii\n"
@@ -280,11 +377,11 @@ async def config_cmd(ctx):
         if val:
             config_found = True
             name = key.replace("_channel", "").replace("_", " ").title()
-            emoji = random.choice(KAWAII_EMOJIS)
+            emoji = "🎀"
             if "role" in key:
-                e.add_field(name=f"{emoji} 🎀 {name} Kawaii", value=f"<@&{val}> ✨", inline=False)
+                e.add_field(name=f"{emoji} {name}", value=f"<@&{val}>", inline=False)
             else:
-                e.add_field(name=f"{emoji} 💫 {name} Mignon", value=f"<#{val}> 💖", inline=False)
+                e.add_field(name=f"{emoji} {name}", value=f"<#{val}>", inline=False)
     
     if not config_found:
         e.description = "🌸✨ Aucune configuration trouvée ! Configure-moi pour que je sois encore plus kawaii ! 💖🎀"
@@ -293,6 +390,15 @@ async def config_cmd(ctx):
     await ctx.send(embed=e)
 
 # === CONFIGURATION COMMANDS ===
+@bot.command(name="rolejoin")
+@commands.has_permissions(manage_roles=True)
+async def role_join(ctx, role: discord.Role):
+    set_conf(ctx.guild.id, "auto_role", role.id)
+    e = discord.Embed(title="✅ Rôle Automatique Configuré", color=0xff69b4)
+    e.description = f"✨ Les nouveaux membres recevront automatiquement le rôle {role.mention} ! 💖"
+    e.set_footer(text="Rôle automatique configuré avec succès")
+    await ctx.send(embed=e)
+
 @bot.command(name="setwelcome")
 @commands.has_permissions(manage_guild=True)
 async def set_welcome(ctx, channel: discord.TextChannel, type: str = "embed"):
@@ -682,7 +788,7 @@ async def gstart(ctx, duration: str, *, prize: str):
     e.add_field(name="⏰🌟 Durée Kawaii", value=f"**{duration}** ⏱️", inline=True)
     e.add_field(name="💖✨ Comment Participer", value="**Réagis avec 🎉 pour participer au giveaway le plus mignon de l'univers ! (◕‿◕)♡**", inline=False)
     e.set_footer(text=f"✨💖 Se termine le {end_time.strftime('%d/%m/%Y à %H:%M')} ! Bonne chance kawaii ! 🌸💕")
-    e.set_image(url="https://i.imgur.com/KOaXSQZ.gif")
+    e.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3o4NGljeWVlcXh2Y3FtajF4M2pndTEyeWh1ZXR3YXVhMG9tZjkydCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Xl0oVz3eb9mfu/giphy.gif")
     
     msg = await ctx.send(f"🎊✨💖 @everyone UN GIVEAWAY ULTRA KAWAII ! 💖✨🎊", embed=e)
     await msg.add_reaction("🎉")

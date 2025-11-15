@@ -1,677 +1,4 @@
-@tasks.loop(seconds=30)
-async def check_giveaways():
-    now = datetime.datetime.utcnow()
-    to_end = []
-    
-    for msg_id, gdata in data.get("giveaways", {}).items():
-        end_time = datetime.datetime.fromisoformat(gdata["end_time"])
-        if now >= end_time:
-            to_end.append(msg_id)
-    
-    for msg_id in to_end:
-        gdata = data["giveaways"][msg_id]
-        guild = bot.get_guild(int(gdata["guild"]))
-        if guild:
-            channel = guild.get_channel(gdata["channel"])
-            if channel:
-                try:
-                    msg = await channel.fetch_message(int(msg_id))
-                    reaction = discord.utils.get(msg.reactions, emoji="🎉")
-                    if reaction:
-                        users = [user async for user in reaction.users() if not user.bot]
-                        if users:
-                            winner = random.choice(users)
-                            e = discord.Embed(title="🎉 Giveaway Terminé ! 🎉", color=0xff69b4)
-                            e.description = f"**🏆 Gagnant:** {winner.mention}\n**🎀 Prix:** {gdata['prize']}\n\n💖 Félicitations !"
-                            await channel.send(embed=e)
-                        else:
-                            await channel.send("❌ Aucun participant au giveaway ! 💔")
-                except:
-                    pass
-        
-        del data["giveaways"][msg_id]
-        save_data(data)
-
-# === AUTO RESPONSES ===
-@bot.command(name="addresponse")
-@commands.has_permissions(manage_guild=True)
-async def add_response(ctx, trigger: str, *, response: str):
-    gid = str(ctx.guild.id)
-    data.setdefault("auto_responses", {}).setdefault(gid, {})[trigger.lower()] = response
-    save_data(data)
-    
-    e = discord.Embed(title="✅ Auto-réponse Ajoutée", color=0xff69b4)
-    e.add_field(name="🎀 Trigger", value=f"```{trigger}```", inline=False)
-    e.add_field(name="💬 Réponse", value=f"```{response}```", inline=False)
-    e.set_footer(text="✨ Le bot répondra automatiquement 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="listresponses")
-async def list_responses(ctx):
-    gid = str(ctx.guild.id)
-    responses = data.get("auto_responses", {}).get(gid, {})
-    
-    if not responses:
-        await ctx.send("🌸 Aucune auto-réponse configurée ! 💕")
-        return
-    
-    e = discord.Embed(title="🤖 Auto-réponses", color=0xff69b4)
-    
-    for i, (trigger, response) in enumerate(responses.items(), 1):
-        e.add_field(
-            name=f"#{i} Trigger: `{trigger}`",
-            value=f"**Réponse:** {response}",
-            inline=False
-        )
-    
-    e.set_footer(text=f"✨ {len(responses)} réponse(s) 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="delresponse")
-@commands.has_permissions(manage_guild=True)
-async def del_response(ctx, trigger: str):
-    gid = str(ctx.guild.id)
-    if gid in data.get("auto_responses", {}) and trigger.lower() in data["auto_responses"][gid]:
-        del data["auto_responses"][gid][trigger.lower()]
-        save_data(data)
-        await ctx.send(f"✅ Auto-réponse pour `{trigger}` supprimée ! 💖")
-    else:
-        await ctx.send(f"❌ Aucune auto-réponse trouvée pour `{trigger}` ! 💔")
-
-# === SUGGESTIONS ===
-@bot.command(name="suggest")
-async def suggest(ctx, *, suggestion: str):
-    sugg_channel_id = get_conf(ctx.guild.id, "suggestion_channel")
-    if not sugg_channel_id:
-        await ctx.send("❌ Aucun salon de suggestions configuré ! 💔")
-        return
-    
-    sugg_channel = ctx.guild.get_channel(sugg_channel_id)
-    if not sugg_channel:
-        await ctx.send("❌ Salon de suggestions introuvable ! 💔")
-        return
-    
-    gid = str(ctx.guild.id)
-    data.setdefault("suggestions", {}).setdefault(gid, {})
-    sugg_id = len(data["suggestions"][gid]) + 1
-    
-    e = discord.Embed(title=f"💡 Suggestion #{sugg_id}", description=suggestion, color=0xff69b4)
-    e.add_field(name="👤 Suggéré par", value=ctx.author.mention, inline=True)
-    e.add_field(name="🆔 ID", value=f"**#{sugg_id}**", inline=True)
-    e.set_thumbnail(url=ctx.author.display_avatar.url)
-    e.set_footer(text=f"✨ Vote avec 👍 ou 👎 ! 💖")
-    
-    msg = await sugg_channel.send(embed=e)
-    await msg.add_reaction("👍")
-    await msg.add_reaction("👎")
-    
-    data["suggestions"][gid][str(sugg_id)] = {
-        "author": str(ctx.author.id),
-        "suggestion": suggestion,
-        "message_id": msg.id,
-        "status": "pending"
-    }
-    save_data(data)
-    
-    await ctx.send(f"✅ Ta suggestion a été envoyée dans {sugg_channel.mention} ! (ID: #{sugg_id}) 💖")
-
-@bot.command(name="acceptsugg")
-@commands.has_permissions(manage_guild=True)
-async def accept_sugg(ctx, sugg_id: int):
-    gid = str(ctx.guild.id)
-    if str(sugg_id) not in data.get("suggestions", {}).get(gid, {}):
-        await ctx.send(f"❌ Suggestion #{sugg_id} introuvable ! 💔")
-        return
-    
-    sugg_data = data["suggestions"][gid][str(sugg_id)]
-    sugg_data["status"] = "accepted"
-    save_data(data)
-    
-    sugg_channel_id = get_conf(ctx.guild.id, "suggestion_channel")
-    if sugg_channel_id:
-        sugg_channel = ctx.guild.get_channel(sugg_channel_id)
-        if sugg_channel:
-            try:
-                msg = await sugg_channel.fetch_message(sugg_data["message_id"])
-                e = msg.embeds[0]
-                e.color = 0x00ff00
-                e.title = f"✅ Suggestion Acceptée #{sugg_id}"
-                e.add_field(name="🎉 Statut", value="**ACCEPTÉE !** 🎊", inline=False)
-                await msg.edit(embed=e)
-            except:
-                pass
-    
-    await ctx.send(f"✅ Suggestion #{sugg_id} acceptée ! 💖")
-
-@bot.command(name="denysugg")
-@commands.has_permissions(manage_guild=True)
-async def deny_sugg(ctx, sugg_id: int):
-    gid = str(ctx.guild.id)
-    if str(sugg_id) not in data.get("suggestions", {}).get(gid, {}):
-        await ctx.send(f"❌ Suggestion #{sugg_id} introuvable ! 💔")
-        return
-    
-    sugg_data = data["suggestions"][gid][str(sugg_id)]
-    sugg_data["status"] = "denied"
-    save_data(data)
-    
-    sugg_channel_id = get_conf(ctx.guild.id, "suggestion_channel")
-    if sugg_channel_id:
-        sugg_channel = ctx.guild.get_channel(sugg_channel_id)
-        if sugg_channel:
-            try:
-                msg = await sugg_channel.fetch_message(sugg_data["message_id"])
-                e = msg.embeds[0]
-                e.color = 0xff0000
-                e.title = f"❌ Suggestion Refusée #{sugg_id}"
-                e.add_field(name="😢 Statut", value="**REFUSÉE** 💔", inline=False)
-                await msg.edit(embed=e)
-            except:
-                pass
-    
-    await ctx.send(f"❌ Suggestion #{sugg_id} refusée 💔")
-
-# === FUN COMMANDS ===
-@bot.command(name="8ball")
-async def eight_ball(ctx, *, question: str):
-    responses = [
-        "Oui absolument ! 💖",
-        "C'est certain ! 🌸",
-        "Sans aucun doute ! 🎀",
-        "Oui définitivement ! 💗",
-        "Tu peux compter dessus ! 💕",
-        "Peut-être... 🤔",
-        "Difficile à dire... 💭",
-        "Mieux vaut ne pas te le dire maintenant ! 🙈",
-        "Je ne peux pas prédire ça ! 🔮",
-        "Repose ta question ! 🌸",
-        "Non ! 💔",
-        "Mes sources disent non... 😢",
-        "Peu probable ! 🌸",
-        "N'y compte pas ! 💭",
-        "Non définitivement ! 💔"
-    ]
-    
-    e = discord.Embed(title="🔮 Boule Magique", color=0xff69b4)
-    e.add_field(name="💭 Question", value=f"```{question}```", inline=False)
-    e.add_field(name="🌟 Réponse", value=f"**{random.choice(responses)}**", inline=False)
-    e.set_footer(text="✨ La boule magique a parlé ! 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="coinflip")
-async def coinflip(ctx):
-    result = random.choice(["Pile", "Face"])
-    emoji = "🪙" if result == "Pile" else "👑"
-    
-    e = discord.Embed(title="🪙 Pile ou Face", color=0xff69b4)
-    e.description = f"**{emoji} {result} ! {emoji}**"
-    e.set_footer(text="✨ Lancer de pièce 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="dice")
-async def dice(ctx):
-    result = random.randint(1, 6)
-    dice_emojis = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
-    
-    e = discord.Embed(title="🎲 Lancer de Dé", color=0xff69b4)
-    e.description = f"**{dice_emojis[result-1]} {result} {dice_emojis[result-1]}**"
-    e.set_footer(text="✨ Dé lancé ! 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="love")
-async def love(ctx, user1: discord.Member, user2: discord.Member = None):
-    if user2 is None:
-        user2 = user1
-        user1 = ctx.author
-    
-    love_percent = random.randint(0, 100)
-    
-    if love_percent < 20:
-        message = "Aucune compatibilité... 💔"
-        color = 0x808080
-    elif love_percent < 40:
-        message = "Pas vraiment compatibles... 💔"
-        color = 0xff6347
-    elif love_percent < 60:
-        message = "Assez compatibles ! 💕"
-        color = 0xffa500
-    elif love_percent < 80:
-        message = "Très compatibles ! 💖"
-        color = 0xff69b4
-    else:
-        message = "PARFAITEMENT COMPATIBLES ! 💖💕"
-        color = 0xff1493
-    
-    hearts = "💖" * (love_percent // 20)
-    bar = "█" * (love_percent // 10) + "░" * (10 - love_percent // 10)
-    
-    e = discord.Embed(title="💕 Calculateur d'Amour 💕", color=color)
-    e.add_field(name="💑 Couple", value=f"{user1.mention} 💕 {user2.mention}", inline=False)
-    e.add_field(name="💖 % d'Amour", value=f"**{love_percent}%** {hearts}", inline=False)
-    e.add_field(name="📊 Barre", value=f"`{bar}` {love_percent}%", inline=False)
-    e.add_field(name="💭 Verdict", value=f"**{message}**", inline=False)
-    e.set_footer(text="✨ Calculateur d'amour 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="meme")
-async def meme(ctx):
-    meme_messages = [
-        "Quand tu te réveilles et que c'est déjà l'après-midi 😴",
-        "Quand tu vois un chien trop mignon 🐶💖",
-        "Moi en train d'étudier VS Moi en train de procrastiner 📚💤",
-        "Quand ta pizza arrive enfin 🍕🎉",
-        "Moi quand je vois quelque chose de kawaii 😍",
-        "POV: Tu essaies d'être productif 💻😴",
-        "Quand tu entends ton plat préféré 🍜👂",
-        "Moi après 5 minutes d'exercice 💪😵",
-        "Quand quelqu'un dit qu'il n'aime pas les animaux 😱💔",
-        "Moi en train de faire semblant de comprendre 🤔"
-    ]
-    
-    e = discord.Embed(title="😂 Meme", description=random.choice(meme_messages), color=0xff69b4)
-    e.set_footer(text="✨ Meme généré ! 💖")
-    await ctx.send(embed=e)
-
-# === UTILITY ===
-@bot.command(name="rules")
-@commands.has_permissions(manage_guild=True)
-async def rules(ctx):
-    e = discord.Embed(
-        title="📜✨ Règles du Serveur ✨📜",
-        description="🌸 Voici les règles à respecter pour garder une bonne ambiance ! 💖",
-        color=0xff69b4
-    )
-    e.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
-    
-    e.add_field(
-        name="1️⃣ 🌸 Respect",
-        value="Sois respectueux envers tous les membres ! Pas d'insultes, de harcèlement ou de discrimination.",
-        inline=False
-    )
-    
-    e.add_field(
-        name="2️⃣ 💬 Spam",
-        value="Ne spam pas les salons ! Évite les messages répétitifs et les mentions abusives.",
-        inline=False
-    )
-    
-    e.add_field(
-        name="3️⃣ 🔞 Contenu",
-        value="Pas de contenu NSFW, violent ou inapproprié. Garde le serveur family-friendly !",
-        inline=False
-    )
-    
-    e.add_field(
-        name="4️⃣ 📢 Publicité",
-        value="Pas de publicité sans autorisation ! Ne partage pas d'invitations Discord non autorisées.",
-        inline=False
-    )
-    
-    e.add_field(
-        name="5️⃣ 🎭 Pseudonyme",
-        value="Utilise un pseudo approprié et mentionnable. Évite les pseudos offensants.",
-        inline=False
-    )
-    
-    e.add_field(
-        name="6️⃣ 🎤 Vocal",
-        value="Respecte les autres en vocal ! Pas de musique forte ou de bruits parasites.",
-        inline=False
-    )
-    
-    e.add_field(
-        name="7️⃣ ⚠️ Staff",
-        value="Écoute et respecte les décisions du staff. En cas de problème, contacte un modérateur.",
-        inline=False
-    )
-    
-    e.add_field(
-        name="8️⃣ 💖 Amusement",
-        value="Amuse-toi et profite du serveur ! On est là pour passer un bon moment ensemble ! 🌸",
-        inline=False
-    )
-    
-    e.set_footer(text="✨ En rejoignant ce serveur, tu acceptes ces règles 💖", icon_url=ctx.bot.user.avatar.url if ctx.bot.user.avatar else None)
-    e.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3o4NGljeWVlcXh2Y3FtajF4M2pndTEyeWh1ZXR3YXVhMG9tZjkydCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Xl0oVz3eb9mfu/giphy.gif")
-    
-    await ctx.send(embed=e)
-
-@bot.command(name="say")
-@commands.has_permissions(manage_messages=True)
-async def say(ctx, *, message: str):
-    await ctx.message.delete()
-    await ctx.send(message)
-
-@bot.command(name="embed")
-@commands.has_permissions(manage_messages=True)
-async def embed_say(ctx, *, message: str):
-    await ctx.message.delete()
-    e = discord.Embed(description=message, color=0xff69b4)
-    await ctx.send(embed=e)
-
-@bot.command(name="serverinfo")
-async def serverinfo(ctx):
-    guild = ctx.guild
-    
-    e = discord.Embed(title=f"🏰 Infos Serveur", color=0xff69b4)
-    
-    if guild.icon:
-        e.set_thumbnail(url=guild.icon.url)
-    
-    e.add_field(name="💫 Nom", value=f"**{guild.name}**", inline=True)
-    e.add_field(name="🆔 ID", value=f"`{guild.id}`", inline=True)
-    e.add_field(name="👑 Propriétaire", value=guild.owner.mention if guild.owner else "Inconnu", inline=True)
-    e.add_field(name="👥 Membres", value=f"**{guild.member_count}** 💖", inline=True)
-    e.add_field(name="💬 Salons", value=f"**{len(guild.channels)}** 🌸", inline=True)
-    e.add_field(name="🎭 Rôles", value=f"**{len(guild.roles)}** 🎀", inline=True)
-    e.add_field(name="📅 Créé le", value=guild.created_at.strftime("%d/%m/%Y"), inline=True)
-    e.add_field(name="🌟 Niveau Boost", value=f"**Niveau {guild.premium_tier}** 💫", inline=True)
-    
-    e.set_footer(text="✨ Infos du serveur 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="userinfo")
-async def userinfo(ctx, member: discord.Member = None):
-    member = member or ctx.author
-    
-    e = discord.Embed(title=f"👤 Infos de {member.display_name}", color=0xff69b4)
-    e.set_thumbnail(url=member.display_avatar.url)
-    
-    e.add_field(name="💫 Nom", value=f"**{member.name}**", inline=True)
-    e.add_field(name="🆔 ID", value=f"`{member.id}`", inline=True)
-    e.add_field(name="💬 Surnom", value=member.display_name, inline=True)
-    e.add_field(name="📅 Compte créé", value=member.created_at.strftime("%d/%m/%Y"), inline=True)
-    e.add_field(name="🎉 A rejoint", value=member.joined_at.strftime("%d/%m/%Y") if member.joined_at else "Inconnu", inline=True)
-    e.add_field(name="🎭 Rôles", value=f"**{len(member.roles)-1}** rôles 💖", inline=True)
-    
-    if member.premium_since:
-        e.add_field(name="💎 Boost depuis", value=member.premium_since.strftime("%d/%m/%Y"), inline=True)
-    
-    e.set_footer(text="✨ Infos utilisateur 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="avatar")
-async def avatar(ctx, member: discord.Member = None):
-    member = member or ctx.author
-    
-    e = discord.Embed(title=f"🖼️ Avatar de {member.display_name}", color=0xff69b4)
-    e.set_image(url=member.display_avatar.url)
-    e.add_field(name="🔗 Lien", value=f"[Clique ici !]({member.display_avatar.url})", inline=False)
-    e.set_footer(text="✨ Avatar 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="poll")
-async def poll(ctx, *, question: str):
-    e = discord.Embed(title="📊 Sondage", description=f"**{question}**", color=0xff69b4)
-    e.add_field(name="💕 Comment voter", value="Réagis avec 👍 pour OUI ou 👎 pour NON !", inline=False)
-    e.set_footer(text=f"✨ Sondage créé par {ctx.author.display_name} 💖", icon_url=ctx.author.display_avatar.url)
-    
-    msg = await ctx.send(embed=e)
-    await msg.add_reaction("👍")
-    await msg.add_reaction("👎")
-
-# === INVITATIONS ===
-@bot.command(name="roleinvite")
-@commands.has_permissions(manage_roles=True)
-async def role_invite(ctx, invites_needed: int, role: discord.Role):
-    gid = str(ctx.guild.id)
-    data.setdefault("roles_invites", {})[gid] = {
-        "invites": invites_needed,
-        "role": role.id
-    }
-    save_data(data)
-    
-    e = discord.Embed(title="✅ Rôle d'Invitation Configuré", color=0xff69b4)
-    e.description = f"🌸 Les membres qui invitent **{invites_needed}** personnes recevront {role.mention} ! 💖"
-    e.set_footer(text="✨ Système d'invitations configuré 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="invites")
-async def invites(ctx, member: discord.Member = None):
-    member = member or ctx.author
-    gid = str(ctx.guild.id)
-    uid = str(member.id)
-    
-    invite_count = data.get("user_invites", {}).get(gid, {}).get(uid, 0)
-    
-    e = discord.Embed(title=f"💌 Invitations de {member.display_name}", color=0xff69b4)
-    e.set_thumbnail(url=member.display_avatar.url)
-    e.add_field(name="🎀 Invitations Totales", value=f"**{invite_count}** invitations 🌟", inline=False)
-    
-    role_config = data.get("roles_invites", {}).get(gid, {})
-    if role_config:
-        required = role_config.get("invites", 0)
-        if invite_count >= required:
-            e.add_field(name="👑 Statut", value=f"**TU AS LE RÔLE !** 🎉", inline=False)
-        else:
-            remaining = required - invite_count
-            e.add_field(name="📊 Progression", value=f"Plus que **{remaining}** invitation(s) ! 💕", inline=False)
-    
-    e.set_footer(text="✨ Invitations 💖")
-    await ctx.send(embed=e)
-
-# === LINKS ===
-@bot.command(name="allowlink")
-@commands.has_permissions(manage_channels=True)
-async def allow_link(ctx, channel: discord.TextChannel):
-    gid = str(ctx.guild.id)
-    data.setdefault("allowed_links", {}).setdefault(gid, [])
-    if channel.id not in data["allowed_links"][gid]:
-        data["allowed_links"][gid].append(channel.id)
-        save_data(data)
-    
-    await ctx.send(f"✅ Les liens sont autorisés dans {channel.mention} ! 💖")
-
-@bot.command(name="disallowlink")
-@commands.has_permissions(manage_channels=True)
-async def disallow_link(ctx, channel: discord.TextChannel):
-    gid = str(ctx.guild.id)
-    if gid in data.get("allowed_links", {}) and channel.id in data["allowed_links"][gid]:
-        data["allowed_links"][gid].remove(channel.id)
-        save_data(data)
-    
-    await ctx.send(f"✅ Les liens sont bloqués dans {channel.mention} ! 💖")
-
-# === TICKETS ===
-@bot.command(name="ticket")
-async def ticket(ctx):
-    category = discord.utils.get(ctx.guild.categories, name="🎫 Tickets")
-    if not category:
-        category = await ctx.guild.create_category("🎫 Tickets")
-    
-    ticket_channel = await ctx.guild.create_text_channel(
-        name=f"ticket-{ctx.author.name}",
-        category=category,
-        topic=f"Ticket de {ctx.author.display_name} 💖"
-    )
-    
-    await ticket_channel.set_permissions(ctx.guild.default_role, read_messages=False)
-    await ticket_channel.set_permissions(ctx.author, read_messages=True, send_messages=True)
-    
-    e = discord.Embed(title="🎫 Ticket Créé", color=0xff69b4)
-    e.description = f"🌸 Bienvenue {ctx.author.mention} ! Un staff va venir t'aider ! 💖\n\n🚪 Utilise `+close` pour fermer ce ticket."
-    e.set_thumbnail(url=ctx.author.display_avatar.url)
-    e.set_footer(text="✨ Ticket 💖")
-    
-    await ticket_channel.send(f"🎀 {ctx.author.mention} 🎀", embed=e)
-    await ctx.send(f"✅ Ton ticket a été créé ! Va dans {ticket_channel.mention} ! 💖")
-
-@bot.command(name="close")
-async def close_ticket(ctx):
-    if "ticket-" in ctx.channel.name:
-        await ctx.send("🚪 Ce ticket va se fermer dans **5 secondes** ! 💖")
-        await asyncio.sleep(5)
-        await ctx.channel.delete()
-    else:
-        await ctx.send("❌ Cette commande ne fonctionne que dans les tickets ! 💔")
-
-@bot.command(name="ticketpanel")
-@commands.has_permissions(manage_guild=True)
-async def ticket_panel(ctx):
-    e = discord.Embed(title="🎫 Panel de Tickets", color=0xff69b4)
-    e.description = f"🌸 **Besoin d'aide ?**\n\nClique sur le bouton ci-dessous pour créer un ticket ! 💖"
-    e.set_footer(text="✨ Support disponible 24/7 💖")
-    
-    class TicketButton(Button):
-        def __init__(self):
-            super().__init__(label="🎫 Créer un Ticket", style=discord.ButtonStyle.primary, emoji="🎀")
-        
-        async def callback(self, interaction: discord.Interaction):
-            category = discord.utils.get(interaction.guild.categories, name="🎫 Tickets")
-            if not category:
-                category = await interaction.guild.create_category("🎫 Tickets")
-            
-            ticket_channel = await interaction.guild.create_text_channel(
-                name=f"ticket-{interaction.user.name}",
-                category=category,
-                topic=f"Ticket de {interaction.user.display_name} 💖"
-            )
-            
-            await ticket_channel.set_permissions(interaction.guild.default_role, read_messages=False)
-            await ticket_channel.set_permissions(interaction.user, read_messages=True, send_messages=True)
-            
-            ticket_e = discord.Embed(title="🎫 Ticket Créé", color=0xff69b4)
-            ticket_e.description = f"🌸 Bienvenue {interaction.user.mention} ! Un staff va venir t'aider ! 💖\n\n🚪 Utilise `+close` pour fermer ce ticket."
-            ticket_e.set_thumbnail(url=interaction.user.display_avatar.url)
-            ticket_e.set_footer(text="✨ Ticket 💖")
-            
-            await ticket_channel.send(f"🎀 {interaction.user.mention} 🎀", embed=ticket_e)
-            await interaction.response.send_message(f"✅ Ton ticket a été créé dans {ticket_channel.mention} ! 💖", ephemeral=True)
-    
-    view = View(timeout=None)
-    view.add_item(TicketButton())
-    
-    await ctx.send(embed=e, view=view)
-
-# === VOCAUX ===
-@bot.command(name="setupvoc")
-@commands.has_permissions(manage_channels=True)
-async def setup_voc(ctx, channel: discord.VoiceChannel):
-    set_conf(ctx.guild.id, "voc_trigger_channel", channel.id)
-    await ctx.send(f"✅ {channel.mention} est maintenant le trigger pour les vocaux temporaires ! 💖")
-
-@bot.event
-async def on_voice_state_update(member, before, after):
-    gid = str(member.guild.id)
-    trigger_channel_id = get_conf(member.guild.id, "voc_trigger_channel")
-    
-    if after.channel and after.channel.id == trigger_channel_id:
-        category = after.channel.category
-        new_channel = await member.guild.create_voice_channel(
-            name=f"🌸 Vocal de {member.display_name}",
-            category=category
-        )
-        await member.move_to(new_channel)
-        
-        data.setdefault("temp_vocs", {})[str(new_channel.id)] = {
-            "owner": str(member.id),
-            "guild": gid
-        }
-        save_data(data)
-    
-    if before.channel and str(before.channel.id) in data.get("temp_vocs", {}):
-        if len(before.channel.members) == 0:
-            await before.channel.delete()
-            del data["temp_vocs"][str(before.channel.id)]
-            save_data(data)
-
-@bot.command(name="createvoc")
-@commands.has_permissions(manage_channels=True)
-async def create_voc(ctx):
-    category = discord.utils.get(ctx.guild.categories, name="🎤 Vocaux")
-    if not category:
-        category = await ctx.guild.create_category("🎤 Vocaux")
-    
-    trigger_channel = await ctx.guild.create_voice_channel(
-        name="➕ Créer un Vocal 💖",
-        category=category
-    )
-    
-    set_conf(ctx.guild.id, "voc_trigger_channel", trigger_channel.id)
-    await ctx.send(f"✅ Vocal trigger créé ! Rejoins-le pour créer ton propre vocal ! 💖")
-
-# === SHOP ===
-@bot.command(name="shop")
-async def shop(ctx):
-    items = {
-        "🎀": {"name": "Badge Kawaii", "price": 500},
-        "🌸": {"name": "Fleur", "price": 300},
-        "💖": {"name": "Coeur", "price": 1000},
-        "⭐": {"name": "Étoile", "price": 750},
-        "🦄": {"name": "Licorne", "price": 2000}
-    }
-    
-    e = discord.Embed(title="🏪 Boutique", color=0xff69b4)
-    
-    for emoji, item in items.items():
-        e.add_field(
-            name=f"{emoji} **{item['name']}**",
-            value=f"💰 **{item['price']}** 💵",
-            inline=False
-        )
-    
-    e.set_footer(text="✨ Utilise +buy <item> 💖")
-    await ctx.send(embed=e)
-
-@bot.command(name="buy")
-async def buy(ctx, item: str):
-    items = {
-        "badge": {"emoji": "🎀", "name": "Badge Kawaii", "price": 500},
-        "fleur": {"emoji": "🌸", "name": "Fleur", "price": 300},
-        "coeur": {"emoji": "💖", "name": "Coeur", "price": 1000},
-        "étoile": {"emoji": "⭐", "name": "Étoile", "price": 750},
-        "licorne": {"emoji": "🦄", "name": "Licorne", "price": 2000}
-    }
-    
-    item = item.lower()
-    if item not in items:
-        await ctx.send(f"❌ Cet item n'existe pas ! Utilise `+shop` 💔")
-        return
-    
-    gid = str(ctx.guild.id)
-    uid = str(ctx.author.id)
-    
-    data.setdefault("economy", {}).setdefault(gid, {})
-    user_money = data["economy"][gid].get(uid, 0)
-    
-    item_data = items[item]
-    if user_money < item_data["price"]:
-        await ctx.send(f"❌ Tu n'as que **{user_money}** 💵 mais cet item coûte **{item_data['price']}** 💵 ! 💔")
-        return
-    
-    data["economy"][gid][uid] = user_money - item_data["price"]
-    save_data(data)
-    
-    e = discord.Embed(title="✅ Achat Réussi !", color=0xff69b4)
-    e.description = f"🌸 {ctx.author.mention} a acheté **{item_data['name']}** {item_data['emoji']} ! 💖"
-    e.add_field(name="💰 Prix", value=f"**{item_data['price']}** 💵", inline=True)
-    e.add_field(name="💎 Restant", value=f"**{data['economy'][gid][uid]}** 💵", inline=True)
-    e.set_footer(text="✨ Merci pour ton achat ! 💖")
-    await ctx.send(embed=e)
-
-# === ERROR HANDLER ===
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send(f"❌ {ctx.author.mention}, tu n'as pas les permissions ! 💔")
-    
-    elif isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f"❌ {ctx.author.mention}, il manque des arguments ! Utilise `+help` 💔")
-    
-    elif isinstance(error, commands.CommandNotFound):
-        await ctx.send(f"❌ {ctx.author.mention}, cette commande n'existe pas ! Utilise `+help` 💔")
-    
-    else:
-        await ctx.send(f"❌ Une erreur est survenue : `{str(error)}` 💔")
-
-# === RUN BOT ===
-if __name__ == "__main__":
-    TOKEN = os.environ.get("DISCORD_TOKEN")
-    if not TOKEN:
-        print("❌ Token Discord manquant ! Configure DISCORD_TOKEN 💔")
-    else:
-        print("🌸 Démarrage du bot... 💖")
-        bot.run(TOKEN)#!/usr/bin/env python3
+#!/usr/bin/env python3
 import os, json, threading, http.server, socketserver, asyncio, datetime, re, random
 import discord
 from discord.ext import commands, tasks
@@ -740,6 +67,41 @@ async def on_ready():
             save_data(data)
         except:
             pass
+
+# === GIVEAWAY LOOP ===
+@tasks.loop(seconds=30)
+async def check_giveaways():
+    now = datetime.datetime.utcnow()
+    to_end = []
+    
+    for msg_id, gdata in data.get("giveaways", {}).items():
+        end_time = datetime.datetime.fromisoformat(gdata["end_time"])
+        if now >= end_time:
+            to_end.append(msg_id)
+    
+    for msg_id in to_end:
+        gdata = data["giveaways"][msg_id]
+        guild = bot.get_guild(int(gdata["guild"]))
+        if guild:
+            channel = guild.get_channel(gdata["channel"])
+            if channel:
+                try:
+                    msg = await channel.fetch_message(int(msg_id))
+                    reaction = discord.utils.get(msg.reactions, emoji="🎉")
+                    if reaction:
+                        users = [user async for user in reaction.users() if not user.bot]
+                        if users:
+                            winner = random.choice(users)
+                            e = discord.Embed(title="🎉 Giveaway Terminé ! 🎉", color=0xff69b4)
+                            e.description = f"**🏆 Gagnant:** {winner.mention}\n**🎀 Prix:** {gdata['prize']}\n\n💖 Félicitations !"
+                            await channel.send(embed=e)
+                        else:
+                            await channel.send("❌ Aucun participant au giveaway ! 💔")
+                except:
+                    pass
+        
+        del data["giveaways"][msg_id]
+        save_data(data)
 
 # === EVENTS ===
 @bot.event
@@ -825,6 +187,31 @@ async def on_message(message):
             break
     
     await bot.process_commands(message)
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    gid = str(member.guild.id)
+    trigger_channel_id = get_conf(member.guild.id, "voc_trigger_channel")
+    
+    if after.channel and after.channel.id == trigger_channel_id:
+        category = after.channel.category
+        new_channel = await member.guild.create_voice_channel(
+            name=f"🌸 Vocal de {member.display_name}",
+            category=category
+        )
+        await member.move_to(new_channel)
+        
+        data.setdefault("temp_vocs", {})[str(new_channel.id)] = {
+            "owner": str(member.id),
+            "guild": gid
+        }
+        save_data(data)
+    
+    if before.channel and str(before.channel.id) in data.get("temp_vocs", {}):
+        if len(before.channel.members) == 0:
+            await before.channel.delete()
+            del data["temp_vocs"][str(before.channel.id)]
+            save_data(data)
 
 # === HELP ===
 @bot.command(name="help")
@@ -914,7 +301,10 @@ async def help_cmd(ctx):
         "`+serverinfo` Infos serveur\n"
         "`+userinfo [@user]` Infos utilisateur\n"
         "`+avatar [@user]` Avatar\n"
-        "`+poll <question>` Sondage"
+        "`+poll <question>` Sondage\n"
+        "`+say <message>` Faire parler le bot\n"
+        "`+embed <message>` Message en embed\n"
+        "`+rules` Afficher les règles"
     ), inline=False)
     
     e.set_footer(text="✨ Bot kawaii créé avec amour 💖", icon_url=ctx.bot.user.avatar.url if ctx.bot.user.avatar else None)
@@ -1260,7 +650,311 @@ async def greroll(ctx, message_id: int):
                 await ctx.send(f"🎉 Nouveau gagnant : {winner.mention} ! Félicitations ! 💖")
             else:
                 await ctx.send("❌ Aucun participant ! 💔")
-    except:
-        await ctx.send("❌ Message introuvable ! 💔")
+        else:
+            await ctx.send("❌ Aucune réaction trouvée ! 💔")
+    except Exception as e:
+        await ctx.send(f"❌ Message introuvable ! 💔")
 
-@tasks.loop(seconds=30)
+# === AUTO RESPONSES ===
+@bot.command(name="addresponse")
+@commands.has_permissions(manage_guild=True)
+async def add_response(ctx, trigger: str, *, response: str):
+    gid = str(ctx.guild.id)
+    data.setdefault("auto_responses", {}).setdefault(gid, {})[trigger.lower()] = response
+    save_data(data)
+    
+    e = discord.Embed(title="✅ Auto-réponse Ajoutée", color=0xff69b4)
+    e.add_field(name="🎀 Trigger", value=f"```{trigger}```", inline=False)
+    e.add_field(name="💬 Réponse", value=f"```{response}```", inline=False)
+    e.set_footer(text="✨ Le bot répondra automatiquement 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="listresponses")
+async def list_responses(ctx):
+    gid = str(ctx.guild.id)
+    responses = data.get("auto_responses", {}).get(gid, {})
+    
+    if not responses:
+        await ctx.send("🌸 Aucune auto-réponse configurée ! 💕")
+        return
+    
+    e = discord.Embed(title="🤖 Auto-réponses", color=0xff69b4)
+    
+    for i, (trigger, response) in enumerate(responses.items(), 1):
+        e.add_field(
+            name=f"#{i} Trigger: `{trigger}`",
+            value=f"**Réponse:** {response}",
+            inline=False
+        )
+    
+    e.set_footer(text=f"✨ {len(responses)} réponse(s) 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="delresponse")
+@commands.has_permissions(manage_guild=True)
+async def del_response(ctx, trigger: str):
+    gid = str(ctx.guild.id)
+    if gid in data.get("auto_responses", {}) and trigger.lower() in data["auto_responses"][gid]:
+        del data["auto_responses"][gid][trigger.lower()]
+        save_data(data)
+        await ctx.send(f"✅ Auto-réponse pour `{trigger}` supprimée ! 💖")
+    else:
+        await ctx.send(f"❌ Aucune auto-réponse trouvée pour `{trigger}` ! 💔")
+
+# === SUGGESTIONS ===
+@bot.command(name="suggest")
+async def suggest(ctx, *, suggestion: str):
+    sugg_channel_id = get_conf(ctx.guild.id, "suggestion_channel")
+    if not sugg_channel_id:
+        await ctx.send("❌ Aucun salon de suggestions configuré ! 💔")
+        return
+    
+    sugg_channel = ctx.guild.get_channel(sugg_channel_id)
+    if not sugg_channel:
+        await ctx.send("❌ Salon de suggestions introuvable ! 💔")
+        return
+    
+    gid = str(ctx.guild.id)
+    data.setdefault("suggestions", {}).setdefault(gid, {})
+    sugg_id = len(data["suggestions"][gid]) + 1
+    
+    e = discord.Embed(title=f"💡 Suggestion #{sugg_id}", description=suggestion, color=0xff69b4)
+    e.add_field(name="👤 Suggéré par", value=ctx.author.mention, inline=True)
+    e.add_field(name="🆔 ID", value=f"**#{sugg_id}**", inline=True)
+    e.set_thumbnail(url=ctx.author.display_avatar.url)
+    e.set_footer(text=f"✨ Vote avec 👍 ou 👎 ! 💖")
+    
+    msg = await sugg_channel.send(embed=e)
+    await msg.add_reaction("👍")
+    await msg.add_reaction("👎")
+    
+    data["suggestions"][gid][str(sugg_id)] = {
+        "author": str(ctx.author.id),
+        "suggestion": suggestion,
+        "message_id": msg.id,
+        "status": "pending"
+    }
+    save_data(data)
+    
+    await ctx.send(f"✅ Ta suggestion a été envoyée dans {sugg_channel.mention} ! (ID: #{sugg_id}) 💖")
+
+@bot.command(name="acceptsugg")
+@commands.has_permissions(manage_guild=True)
+async def accept_sugg(ctx, sugg_id: int):
+    gid = str(ctx.guild.id)
+    if str(sugg_id) not in data.get("suggestions", {}).get(gid, {}):
+        await ctx.send(f"❌ Suggestion #{sugg_id} introuvable ! 💔")
+        return
+    
+    sugg_data = data["suggestions"][gid][str(sugg_id)]
+    sugg_data["status"] = "accepted"
+    save_data(data)
+    
+    sugg_channel_id = get_conf(ctx.guild.id, "suggestion_channel")
+    if sugg_channel_id:
+        sugg_channel = ctx.guild.get_channel(sugg_channel_id)
+        if sugg_channel:
+            try:
+                msg = await sugg_channel.fetch_message(sugg_data["message_id"])
+                e = msg.embeds[0]
+                e.color = 0x00ff00
+                e.title = f"✅ Suggestion Acceptée #{sugg_id}"
+                e.add_field(name="🎉 Statut", value="**ACCEPTÉE !** 🎊", inline=False)
+                await msg.edit(embed=e)
+            except:
+                pass
+    
+    await ctx.send(f"✅ Suggestion #{sugg_id} acceptée ! 💖")
+
+@bot.command(name="denysugg")
+@commands.has_permissions(manage_guild=True)
+async def deny_sugg(ctx, sugg_id: int):
+    gid = str(ctx.guild.id)
+    if str(sugg_id) not in data.get("suggestions", {}).get(gid, {}):
+        await ctx.send(f"❌ Suggestion #{sugg_id} introuvable ! 💔")
+        return
+    
+    sugg_data = data["suggestions"][gid][str(sugg_id)]
+    sugg_data["status"] = "denied"
+    save_data(data)
+    
+    sugg_channel_id = get_conf(ctx.guild.id, "suggestion_channel")
+    if sugg_channel_id:
+        sugg_channel = ctx.guild.get_channel(sugg_channel_id)
+        if sugg_channel:
+            try:
+                msg = await sugg_channel.fetch_message(sugg_data["message_id"])
+                e = msg.embeds[0]
+                e.color = 0xff0000
+                e.title = f"❌ Suggestion Refusée #{sugg_id}"
+                e.add_field(name="😢 Statut", value="**REFUSÉE** 💔", inline=False)
+                await msg.edit(embed=e)
+            except:
+                pass
+    
+    await ctx.send(f"❌ Suggestion #{sugg_id} refusée 💔")
+
+# === FUN COMMANDS ===
+@bot.command(name="8ball")
+async def eight_ball(ctx, *, question: str):
+    responses = [
+        "Oui absolument ! 💖",
+        "C'est certain ! 🌸",
+        "Sans aucun doute ! 🎀",
+        "Oui définitivement ! 💗",
+        "Tu peux compter dessus ! 💕",
+        "Peut-être... 🤔",
+        "Difficile à dire... 💭",
+        "Mieux vaut ne pas te le dire maintenant ! 🙈",
+        "Je ne peux pas prédire ça ! 🔮",
+        "Repose ta question ! 🌸",
+        "Non ! 💔",
+        "Mes sources disent non... 😢",
+        "Peu probable ! 🌸",
+        "N'y compte pas ! 💭",
+        "Non définitivement ! 💔"
+    ]
+    
+    e = discord.Embed(title="🔮 Boule Magique", color=0xff69b4)
+    e.add_field(name="💭 Question", value=f"```{question}```", inline=False)
+    e.add_field(name="🌟 Réponse", value=f"**{random.choice(responses)}**", inline=False)
+    e.set_footer(text="✨ La boule magique a parlé ! 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="coinflip")
+async def coinflip(ctx):
+    result = random.choice(["Pile", "Face"])
+    emoji = "🪙" if result == "Pile" else "👑"
+    
+    e = discord.Embed(title="🪙 Pile ou Face", color=0xff69b4)
+    e.description = f"**{emoji} {result} ! {emoji}**"
+    e.set_footer(text="✨ Lancer de pièce 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="dice")
+async def dice(ctx):
+    result = random.randint(1, 6)
+    dice_emojis = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
+    
+    e = discord.Embed(title="🎲 Lancer de Dé", color=0xff69b4)
+    e.description = f"**{dice_emojis[result-1]} {result} {dice_emojis[result-1]}**"
+    e.set_footer(text="✨ Dé lancé ! 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="love")
+async def love(ctx, user1: discord.Member, user2: discord.Member = None):
+    if user2 is None:
+        user2 = user1
+        user1 = ctx.author
+    
+    love_percent = random.randint(0, 100)
+    
+    if love_percent < 20:
+        message = "Aucune compatibilité... 💔"
+        color = 0x808080
+    elif love_percent < 40:
+        message = "Pas vraiment compatibles... 💔"
+        color = 0xff6347
+    elif love_percent < 60:
+        message = "Assez compatibles ! 💕"
+        color = 0xffa500
+    elif love_percent < 80:
+        message = "Très compatibles ! 💖"
+        color = 0xff69b4
+    else:
+        message = "PARFAITEMENT COMPATIBLES ! 💖💕"
+        color = 0xff1493
+    
+    hearts = "💖" * (love_percent // 20)
+    bar = "█" * (love_percent // 10) + "░" * (10 - love_percent // 10)
+    
+    e = discord.Embed(title="💕 Calculateur d'Amour 💕", color=color)
+    e.add_field(name="💑 Couple", value=f"{user1.mention} 💕 {user2.mention}", inline=False)
+    e.add_field(name="💖 % d'Amour", value=f"**{love_percent}%** {hearts}", inline=False)
+    e.add_field(name="📊 Barre", value=f"`{bar}` {love_percent}%", inline=False)
+    e.add_field(name="💭 Verdict", value=f"**{message}**", inline=False)
+    e.set_footer(text="✨ Calculateur d'amour 💖")
+    await ctx.send(embed=e)
+
+@bot.command(name="meme")
+async def meme(ctx):
+    meme_messages = [
+        "Quand tu te réveilles et que c'est déjà l'après-midi 😴",
+        "Quand tu vois un chien trop mignon 🐶💖",
+        "Moi en train d'étudier VS Moi en train de procrastiner 📚💤",
+        "Quand ta pizza arrive enfin 🍕🎉",
+        "Moi quand je vois quelque chose de kawaii 😍",
+        "POV: Tu essaies d'être productif 💻😴",
+        "Quand tu entends ton plat préféré 🍜👂",
+        "Moi après 5 minutes d'exercice 💪😵",
+        "Quand quelqu'un dit qu'il n'aime pas les animaux 😱💔",
+        "Moi en train de faire semblant de comprendre 🤔"
+    ]
+    
+    e = discord.Embed(title="😂 Meme", description=random.choice(meme_messages), color=0xff69b4)
+    e.set_footer(text="✨ Meme généré ! 💖")
+    await ctx.send(embed=e)
+
+# === UTILITY ===
+@bot.command(name="rules")
+@commands.has_permissions(manage_guild=True)
+async def rules(ctx):
+    e = discord.Embed(
+        title="📜✨ Règles du Serveur ✨📜",
+        description="🌸 Voici les règles à respecter pour garder une bonne ambiance ! 💖",
+        color=0xff69b4
+    )
+    e.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+    
+    e.add_field(
+        name="1️⃣ 🌸 Respect",
+        value="Sois respectueux envers tous les membres ! Pas d'insultes, de harcèlement ou de discrimination.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="2️⃣ 💬 Spam",
+        value="Ne spam pas les salons ! Évite les messages répétitifs et les mentions abusives.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="3️⃣ 🔞 Contenu",
+        value="Pas de contenu NSFW, violent ou inapproprié. Garde le serveur family-friendly !",
+        inline=False
+    )
+    
+    e.add_field(
+        name="4️⃣ 📢 Publicité",
+        value="Pas de publicité sans autorisation ! Ne partage pas d'invitations Discord non autorisées.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="5️⃣ 🎭 Pseudonyme",
+        value="Utilise un pseudo approprié et mentionnable. Évite les pseudos offensants.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="6️⃣ 🎤 Vocal",
+        value="Respecte les autres en vocal ! Pas de musique forte ou de bruits parasites.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="7️⃣ ⚠️ Staff",
+        value="Écoute et respecte les décisions du staff. En cas de problème, contacte un modérateur.",
+        inline=False
+    )
+    
+    e.add_field(
+        name="8️⃣ 💖 Amusement",
+        value="Amuse-toi et profite du serveur ! On est là pour passer un bon moment ensemble ! 🌸",
+        inline=False
+    )
+    
+    e.set_footer(text="✨ En rejoignant ce serveur, tu acceptes ces règles 💖", icon_url=ctx.bot.user.avatar.url if ctx.bot.user.avatar else None)
+    e.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3o4NGljeWVlcXh2Y3FtajF4M2pndTEyeWh1ZXR3YXVhMG9tZjkydCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Xl0oVz3eb9mfu/giphy.gif")
+    
+    await ctx.send(embed=e)

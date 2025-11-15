@@ -167,7 +167,7 @@ async def help_cmd(ctx):
         description="🎀 Voici toutes les commandes mignonnes du bot le plus adorable ! (◕‿◕)♡ 🌟",
         color=random_kawaii_color()
     )
-    e.set_thumbnail(url="https://i.imgur.com/KOaXSQZ.gif")
+    e.set_thumbnail(url="https://i.imgur.com/9xPqm8L.gif")
     
     e.add_field(name=f"{random_kawaii_emojis(2)} ⚙️ Configuration Ultra Mignonne ⚙️", value=(
         "`+config` 📋✨ Configuration actuelle kawaii\n"

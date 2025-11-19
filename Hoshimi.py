@@ -1547,10 +1547,39 @@ async def kick(ctx, member: discord.Member, *, reason: str = "Aucune raison"):
 @bot.command(name="ban")
 @commands.has_permissions(ban_members=True)
 async def ban(ctx, member: discord.Member, *, reason: str = "Aucune raison"):
-    await member.ban(reason=reason)
+    """Bannir un membre et logger l'action proprement."""
+    try:
+        await member.ban(reason=reason)
+    except Exception as e:
+        await ctx.send(f"❌ Impossible de bannir {member.mention} : {e}")
+        return
+
     e = discord.Embed(title="🔨 Membre banni", color=0xff1493)
     e.add_field(name="💫 Membre", value=member.mention)
     e.add_field(name="💭 Raison", value=reason)
     e.set_footer(text="✨ Au revoir 👋💔")
     await ctx.send(embed=e)
-    await log_action(ctx.guild, "member_
+
+    # Log the ban action in the configured logs channel (if any)
+    await log_action(
+        ctx.guild,
+        "member_ban",
+        membre=member.display_name,
+        raison=reason,
+        modérateur=ctx.author.mention
+    )
+if __name__ == "__main__":
+    TOKEN = os.environ.get("DISCORD_TOKEN")
+    
+    if not TOKEN:
+        print("❌ DISCORD_TOKEN manquant dans les variables d'environnement.")
+        exit(1)
+
+    print("🚀 Démarrage du bot Hoshikuzu...")
+    
+    try:
+        bot.run(TOKEN)
+    except discord.LoginFailure:
+        print("❌ Token invalide.")
+    except Exception as e:
+        print(f"❌ Erreur fatale : {e}")

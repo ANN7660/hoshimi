@@ -1085,6 +1085,54 @@ async def avatar_cmd(ctx, member: discord.Member=None):
 # -------------------------
 # STARTUP
 # -------------------------
+
+
+# === INTEGRATED CONFIG PANEL ===
+
+# === ADVANCED CONFIG PANEL (Option B) ===
+# This code must be inserted in the bot after commands but before main.
+# It uses discord.ui.Button and Select to build an interactive panel.
+
+import discord
+from discord.ui import View, Button, Select
+
+class ConfigPanel(View):
+    def __init__(self, guild_id):
+        super().__init__(timeout=120)
+        self.guild_id = guild_id
+
+        # PAGE SELECTOR
+        self.add_item(Select(
+            placeholder="Choisir une catégorie…",
+            options=[
+                discord.SelectOption(label="Salons", description="Configurer salons de bienvenue / départ / logs", emoji="📺", value="channels"),
+                discord.SelectOption(label="Modération", description="Automod / badwords / invites", emoji="🛡️", value="moderation"),
+                discord.SelectOption(label="Rôles", description="Auto-role / reaction role", emoji="🎭", value="roles"),
+                discord.SelectOption(label="Niveaux", description="XP / niveaux", emoji="⭐", value="levels"),
+                discord.SelectOption(label="Économie", description="Shop / daily / monnaie", emoji="💰", value="economy"),
+                discord.SelectOption(label="Tickets", description="Configuration système ticket", emoji="🎫", value="tickets"),
+                discord.SelectOption(label="Vocaux", description="Salon trigger vocaux", emoji="🎤", value="voc"),
+            ],
+            custom_id="panel_select"
+        ))
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        return True
+
+@bot.command(name="config2")
+@commands.has_permissions(manage_guild=True)
+async def config2(ctx):
+    view = ConfigPanel(ctx.guild.id)
+    embed = discord.Embed(
+        title="⚙️ Panneau de configuration ⸺ Hoshimi",
+        description="Sélectionne une catégorie pour configurer le bot.
+
+**Expiration dans 2 minutes.**",
+        color=0xff69b4
+    )
+    await ctx.send(embed=embed, view=view)
+
+
 if __name__ == "__main__":
     TOKEN = os.environ.get("DISCORD_TOKEN")
     if not TOKEN:

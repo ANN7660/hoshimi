@@ -1125,9 +1125,9 @@ async def config2(ctx):
     view = ConfigPanel(ctx.guild.id)
     embed = discord.Embed(
         title="⚙️ Panneau de configuration ⸺ Hoshimi",
-        description="Sélectionne une catégorie pour configurer le bot.
+        description="""Sélectionne une catégorie pour configurer le bot.
 
-**Expiration dans 2 minutes.**",
+**Expiration dans 2 minutes.**""",
         color=0xff69b4
     )
     await ctx.send(embed=embed, view=view)
